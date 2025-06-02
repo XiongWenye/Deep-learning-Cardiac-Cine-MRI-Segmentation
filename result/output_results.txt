@@ -1,0 +1,22 @@
+--- Baseline UNet ---
+RV Dice Coefficient: Mean=0.9498, SD=0.0089
+MYO Dice Coefficient: Mean=0.8755, SD=0.0120
+LV Dice Coefficient: Mean=0.8960, SD=0.0361
+
+--- UNet No Shortcut ---
+RV Dice Coefficient Without Shortcut: Mean=0.9100, SD=0.0171
+MYO Dice Coefficient Without Shortcut: Mean=0.8044, SD=0.0185
+LV Dice Coefficient Without Shortcut: Mean=0.8499, SD=0.0306
+
+--- UNet with Data Augmentation ---
+RV Accuracy (Data Aug): Mean=0.9988, SD=0.0002
+MYO Accuracy (Data Aug): Mean=0.9971, SD=0.0003
+LV Accuracy (Data Aug): Mean=0.9978, SD=0.0005
+RV Dice Coefficient With Data Augmentation: Mean=0.9350, SD=0.0109
+MYO Dice Coefficient With Data Augmentation: Mean=0.8512, SD=0.0160
+LV Dice Coefficient With Data Augmentation: Mean=0.8673, SD=0.0353
+
+--- UNet with Soft Dice Loss ---
+RV Accuracy With Soft Dice Loss: Mean=0.9992, SD=0.0001
+MYO Accuracy With Soft Dice Loss: Mean=0.9979, SD=0.0002
+LV Accuracy With Soft Dice Loss: Mean=0.9980, SD=0.0007
