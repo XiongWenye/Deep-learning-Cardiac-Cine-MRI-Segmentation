@@ -432,134 +432,60 @@ print(f'LV Dice Coefficient Without Shortcut: Mean={mean_dice_lv_no_shortcut:.4f
 save_segmentation_results(net_no_shortcut, test_set, device, 'result', num_samples=3, model_name='no_shortcut_unet')
 
 
-# --- UNet with Data Augmentation ---
-# Define cardiac MRI appropriate augmentations
-# Note: transforms.ColorJitter is typically for RGB images. For grayscale, brightness/contrast might work.
-# Ensure that transforms are applied consistently to image and label if they are geometric.
-# The user's approach of stacking, transforming, then unstacking is good for geometric transforms.
-# For intensity transforms like ColorJitter on the image only, it should be applied before stacking or selectively.
-# Current user code applies ColorJitter to the stack, which will affect the label if it's not binary 0/1.
-# Assuming labels are e.g. 0, 85, 170, 255, ColorJitter might corrupt them.
-# It's safer to apply intensity transforms only to the image.
-
-# Revised transform:
-def create_geometric_transforms(output_size, is_mask=False):
-    """
-    创建几何变换。
-    Args:
-        output_size (tuple): (height, width) 期望的输出尺寸。
-        is_mask (bool): 如果是True，则为掩码配置变换（如使用最近邻插值）。
-    """
-    # 掩码使用最近邻插值，图像使用双线性插值
-    interpolation_img = T.InterpolationMode.BILINEAR
-    interpolation_mask = T.InterpolationMode.NEAREST
-    
-    # 图像启用抗锯齿，掩码禁用（因为它会改变离散值）
-    antialias_img = True
-    antialias_mask = None # 或者 False，取决于 transform 是否接受 bool
-
-    # 填充值。对于图像和掩码，背景通常是0。
-    fill_value = 0
-
-    transforms_list = [
-        T.RandomHorizontalFlip(p=0.5),
-        T.RandomRotation(degrees=15,
-                         interpolation=interpolation_mask if is_mask else interpolation_img,
-                         fill=fill_value),
-        T.RandomAffine(degrees=0,
-                       translate=(0.05, 0.05),
-                       scale=(0.95, 1.05),
-                       interpolation=interpolation_mask if is_mask else interpolation_img,
-                       fill=fill_value),
-        T.RandomResizedCrop(size=output_size,
-                            scale=(0.90, 1.10), # 可以稍微放宽一点点范围
-                            ratio=(0.90, 1.10), # 可以稍微放宽一点点范围
-                            interpolation=interpolation_mask if is_mask else interpolation_img,
-                            antialias=antialias_mask if is_mask else antialias_img)
-    ]
-    return T.Compose(transforms_list)
-
-# --- 2. 改进的强度变换 (仅应用于图像) ---
-transform_intensity_image_only = T.Compose([
-    # ColorJitter的亮度和对比度部分对灰度图仍有用
-    T.ColorJitter(brightness=(0.8, 1.2), contrast=(0.8, 1.2)), # 调整因子范围
-    # 可以考虑加入高斯模糊，模拟轻微的图像质量变化
-    T.RandomApply([T.GaussianBlur(kernel_size=3, sigma=(0.1, 1.5))], p=0.3),
-    # 随机自动对比度调整
-    T.RandomAutocontrast(p=0.3)
+transform = transforms.Compose([
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomRotation(degrees=15),
+    transforms.RandomAffine(
+        degrees=50,
+        translate=(0.1, 0.1),  # Small translations
+        scale=(0.9, 1.1),      # Slight scaling
+        shear=5                # Small shear transformations
+    )
 ])
 
-# --- 3. 改进的 SegmentationDataset __getitem__ 方法 ---
-#    确保图像和掩码应用相同的随机几何变换
-
-class SegmentationDataset(torch.utils.data.Dataset): # 替换为您的实际类名
-    def __init__(self, inputs_tensor, labels_tensor, output_size=(256, 256), augment=False):
-        self.inputs = inputs_tensor    # 形状应为 (N, C, H_in, W_in)
-        self.labels = labels_tensor    # 形状应为 (N, C_mask, H_in, W_in)
-        self.output_size = output_size
-        self.augment = augment
-
-        if self.augment:
-            self.geometric_transform_image = create_geometric_transforms(output_size, is_mask=False)
-            self.geometric_transform_mask = create_geometric_transforms(output_size, is_mask=True)
-            self.intensity_transform_image = transform_intensity_image_only
-        else:
-            # 如果不增广，可能仍需要resize到统一大小
-            self.resize_image = T.Resize(output_size, interpolation=T.InterpolationMode.BILINEAR, antialias=True)
-            self.resize_mask = T.Resize(output_size, interpolation=T.InterpolationMode.NEAREST)
-
+class SegmentationDataset(data.Dataset):
+    def __init__(self, inputs, labels, transform=None):
+        self.inputs = inputs
+        self.labels = labels
+        self.transform = transform
 
     def __len__(self):
         return len(self.inputs)
 
     def __getitem__(self, idx):
-        image = self.inputs[idx]  # 例如 (1, H_in, W_in)
-        mask = self.labels[idx]   # 例如 (1, H_in, W_in)
-
-        if self.augment:
-            # 关键：确保图像和掩码使用相同的随机种子进行几何变换
-            seed = random.randint(0, 2**32 - 1) # 或者 torch.seed() 等方法获取和设置种子
-
-            # 应用于图像
-            torch.manual_seed(seed)
-            random.seed(seed) # torchvision中某些变换可能依赖Python的random模块
-            augmented_image = self.geometric_transform_image(image)
+        image = self.inputs[idx]
+        label = self.labels[idx]
+        
+        if self.transform: 
+            all = torch.stack((image, label), dim = 0)
+            all = self.transform(all)
+            image = all[0]
+            label = all[1]
             
-            # 应用于掩码 (使用相同的种子)
-            torch.manual_seed(seed)
-            random.seed(seed)
-            augmented_mask = self.geometric_transform_mask(mask)
-            
-            # 仅对图像应用强度变换
-            augmented_image = self.intensity_transform_image(augmented_image)
-            
-            return augmented_image, augmented_mask
-        else:
-            # 如果不增广，则进行resize
-            image = self.resize_image(image)
-            mask = self.resize_mask(mask)
-            return image, mask
+        return image, label
 
 
-# Extract tensors from Subset objects
-def extract_tensors_from_subset(subset):
-    return subset.dataset.tensors[0][subset.indices], subset.dataset.tensors[1][subset.indices]
 
-inputs_train, labels_train = extract_tensors_from_subset(train_set)
-inputs_val, labels_val = extract_tensors_from_subset(val_set)
-# test_set is used for final evaluation, typically without augmentation for consistent comparison.
+def extract_inputs_labels(dataset):
+    inputs = []
+    labels = []
+    for data in dataset:
+        input, label = data
+        inputs.append(input)
+        labels.append(label)
+    inputs = torch.stack(inputs)
+    labels = torch.stack(labels)
+    return inputs, labels
 
-train_dataset_aug = SegmentationDataset(inputs_train, labels_train, 
-                                        output_size=(256, 256),
-                                        augment=True)
-# Validation set usually does not have augmentation
-val_dataset_noaug = SegmentationDataset(inputs_val, labels_val, 
-                                        output_size=(256, 256),
-                                        augment=False)
+inputs_train, labels_train = extract_inputs_labels(train_set)
+inputs_val, labels_val = extract_inputs_labels(val_set)
+inputs_test, labels_test = extract_inputs_labels(test_set)
 
+train_dataset = SegmentationDataset(inputs_train, labels_train, transform=transform)
+val_dataset = SegmentationDataset(inputs_val, labels_val, transform=None)
 
-dataloader_train_aug = data.DataLoader(train_dataset_aug, batch_size=batch_size, shuffle=True)
-dataloader_val_aug = data.DataLoader(val_dataset_noaug, batch_size=batch_size, shuffle=False) # Use non-augmented val set
+dataloader_train_aug = data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+dataloader_val_aug = data.DataLoader(val_dataset, batch_size=32, shuffle=False)
 
 print("\n--- Training UNet with Data Augmentation ---")
 net_data_aug = UNet(n_channels=1, n_classes=3, C_base=32)
