@@ -163,9 +163,9 @@ The baseline U-Net trained with Cross-Entropy loss achieved the following Dice s
     \toprule
     Structure & Mean   & Standard Deviation \\
     \midrule
-    RV        & 0.9498 & 0.0089             \\
-    MYO       & 0.8755 & 0.0120             \\
-    LV        & 0.8960 & 0.0361             \\
+    RV        & 0.9519 & 0.0086             \\
+    MYO       & 0.8734 & 0.0161             \\
+    LV        & 0.8920 & 0.0310             \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -206,9 +206,9 @@ The U-Net variant without skip connections, trained under identical conditions, 
     \toprule
     Structure & Mean Dice & Standard Deviation \\
     \midrule
-    RV        & 0.9100    & 0.0171             \\
-    MYO       & 0.8044    & 0.0185             \\
-    LV        & 0.8499    & 0.0306             \\
+    RV        & 0.9260    & 0.0111             \\
+    MYO       & 0.8223    & 0.0168             \\
+    LV        & 0.8588    & 0.0296             \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -217,9 +217,9 @@ The U-Net variant without skip connections, trained under identical conditions, 
 Comparing Table \ref{tab:no_shortcut_unet} with Table \ref{tab:baseline_unet}, removing skip connections from the U-Net architecture
 resulted in a significant degradation of performance across all three structures:
 \begin{itemize}
-  \item RV Dice: $0.9498 \rightarrow 0.9100$
-  \item MYO Dice: $0.8755 \rightarrow 0.8044$
-  \item LV Dice: $0.8960 \rightarrow 0.8499$
+  \item RV Dice: $0.9519 \rightarrow 0.9260$
+  \item MYO Dice: $0.8734 \rightarrow 0.8223$
+  \item LV Dice: $0.8920 \rightarrow 0.8588$
 \end{itemize}
 This substantial drop highlights the critical role of skip connections. Skip connections allow the decoder to reuse high-resolution
 feature maps from the encoder, which contain fine-grained spatial information lost during downsampling. This helps in precise
@@ -252,9 +252,9 @@ The baseline U-Net architecture trained with data augmentation on the training s
     \multicolumn{1}{c|}{Structure} & \multicolumn{2}{c|}{Accuracy} & \multicolumn{2}{c}{Dice Coefficient}                   \\
                                    & Mean                          & SD                                   & Mean   & SD     \\
     \midrule
-    RV                             & 0.9988                        & 0.0002                               & 0.9350 & 0.0109 \\
-    MYO                            & 0.9971                        & 0.0003                               & 0.8512 & 0.0160 \\
-    LV                             & 0.9978                        & 0.0005                               & 0.8673 & 0.0353 \\
+    RV                             & 0.9986                        & 0.0002                               & 0.9276 & 0.0109 \\
+    MYO                            & 0.9968                        & 0.0003                               & 0.8469 & 0.0149 \\
+    LV                             & 0.9978                        & 0.0005                               & 0.8635 & 0.0384 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -262,9 +262,9 @@ The baseline U-Net architecture trained with data augmentation on the training s
 \subsection{Discussion}
 Comparing the Dice coefficients from Table \ref{tab:data_aug_unet} with the baseline U-Net in Table \ref{tab:baseline_unet}:
 \begin{itemize}
-  \item RV Dice: $0.9498 \rightarrow 0.9350$
-  \item MYO Dice: $0.8755 \rightarrow 0.8512$
-  \item LV Dice: $0.8960 \rightarrow 0.8673$
+  \item RV Dice: $0.9519 \rightarrow 0.9276$
+  \item MYO Dice: $0.8734 \rightarrow 0.8469$
+  \item LV Dice: $0.8920 \rightarrow 0.8635$
 \end{itemize}
 We can find out that the data augmentation strategy employed led to a slight decrease in Dice coefficients for all structures compared to the
 baseline model trained on un-augmented data. While data augmentation is generally expected to improve generalization and robustness,
@@ -294,15 +294,16 @@ Despite the drop in Dice scores, the pixel-wise accuracy for the augmented model
 The U-Net trained with data augmentation and Soft Dice Loss achieved the following pixel-wise accuracies:
 \begin{table}[H]
   \centering
-  \caption{Accuracy for U-Net with Soft Dice Loss (Task d)}
+  \caption{Performance of U-Net with Data Augmentation (Task c)}
   \label{tab:soft_dice_unet}
-  \begin{tabular}{lcc}
+  \begin{tabular}{l|cc|cc}
     \toprule
-    Structure & Mean Accuracy & Standard Deviation \\
+    \multicolumn{1}{c|}{Structure} & \multicolumn{2}{c|}{Accuracy} & \multicolumn{2}{c}{Dice Coefficient}                   \\
+                                   & Mean                          & SD                                   & Mean   & SD     \\
     \midrule
-    RV        & 0.9992        & 0.0001             \\
-    MYO       & 0.9979        & 0.0002             \\
-    LV        & 0.9980        & 0.0007             \\
+    RV                             & 0.9992                        & 0.0002                               & 0.9566 & 0.0100 \\
+    MYO                            & 0.9980                        & 0.0002                               & 0.8962 & 0.0100 \\
+    LV                             & 0.9983                        & 0.0006                               & 0.8998 & 0.0371 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -310,11 +311,11 @@ The U-Net trained with data augmentation and Soft Dice Loss achieved the followi
 \subsection{Impact of Soft Dice Loss}
 The U-Net trained with Soft Dice Loss (and data augmentation) was primarily evaluated using pixel-wise accuracy
 (Table \ref{tab:soft_dice_unet}). Comparing these accuracies to those from the U-Net trained with BCE loss and
-data augmentation (Table \ref{tab:data_aug_unet}):
+data augmentation (Table \ref{tab:baseline_unet}):
 \begin{itemize}
-  \item RV Accuracy: $0.9988 \rightarrow 0.9992 \text{ (Soft Dice)}$
-  \item MYO Accuracy: $0.9971 \rightarrow 0.9979 \text{ (Soft Dice)}$
-  \item LV Accuracy: $0.9978 \rightarrow 0.9980 \text{ (Soft Dice)}$
+  \item RV Dice: $0.9519 \rightarrow 0.9566$
+  \item MYO Dice: $0.8734 \rightarrow 0.8962$
+  \item LV Dice: $0.8920 \rightarrow 0.8998$
 \end{itemize}
 The Soft Dice Loss resulted in slightly higher pixel-wise accuracies for all structures. This is a positive indication.
 The Soft Dice Loss directly optimizes a surrogate of the Dice coefficient, which is often beneficial for segmentation tasks,

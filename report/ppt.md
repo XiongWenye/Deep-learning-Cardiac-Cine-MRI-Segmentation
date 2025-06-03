@@ -13,224 +13,335 @@ ShanghaiTech University
 
 ## Overview
 
-*   **Goal:** Reconstruct high-quality dynamic MRI images from undersampled k-space data.
-*   **Challenge:** Undersampling introduces aliasing artifacts.
-*   **Approach:** Deep learning framework combining:
-  *   Dual 2D UNets (for real and imaginary components)
-  *   3D ResNet (for temporal correlation)
-*   **Evaluation:** PSNR and SSIM metrics.
+*   **Goal:** Segment key cardiac structures – Left Ventricle (LV), Right Ventricle (RV), and Myocardium (MYO) – from 2D cine MRI slices.
+*   **Challenge:** Accurate and robust delineation of these structures, which can vary in shape and appearance.
+*   **Approach:** U-Net based deep learning framework.
+    1.  Baseline U-Net implementation.
+    2.  Impact of removing U-Net skip connections.
+    3.  Effect of data augmentation.
+    4.  Comparison of Binary Cross-Entropy (BCE) vs. Soft Dice Loss.
+    5.  Improvements.
+*   **Evaluation:** Dice Similarity Coefficient (DSC).
 
 ---
 
-## Data & Undersampling
+## Data & Preprocessing
 
-*   **Dataset:** `cine.npz` - Fully sampled cardiac cine MRI `[nsamples, nt, nx, ny]`.
-*   **Mask Generation:**
-  *   Variable density random undersampling.
-  *   Acceleration Factor (AF) = 5.
-  *   11 central k-space lines preserved per frame.
-  *   Different masks for different frames.
-*   **Aliasing:** $b = F^{-1} \cdot U \cdot F \cdot m$
+*   **Dataset:** `cine_seg.npz` 
+    *   Contains 2D cardiac cine MRI slices and corresponding segmentation labels.
+*   **Label Preprocessing:**
+    *   Original single-channel labels (pixel values for classes) converted to 3-channel binary masks (one channel per class: RV, MYO, LV).
+*   **Data Splitting:**
+    *   Ratio: 4 (Train) : 1 (Validation) : 2 (Test).
+    *   Batch Size: 32.
   
 ---
 
-![Undersampling Mask width="600"](https://github.com/XiongWenye/xiongwenye.github.io/blob/master/files/Deep%20Learning%20Dynamic%20MRI%20Reconstruction/undersampling_mask.png?raw=true")
+## U-Net Structure (1/2)
+
+*   **Foundation:** Standard U-Net encoder-decoder architecture.
+*   **Key Components:**
+    *   `DoubleConv`: Two sequential (Conv2D 3x3 + BatchNorm2D + ReLU) blocks.
+    *   `Down`: Max Pooling (2x2) + `DoubleConv` (Encoder path).
+    *   `Up`: Upsampling + Concatenation (skip connection) with encoder features + `DoubleConv` (Decoder path).
+*   **Parameters:**
+    *   `C_base` (channels in first layer): 32.
+    *   Downsampling Stages: 4.
+    *   Input: 1 channel (grayscale MRI).
+    *   Output: 3 channels (logits for RV, MYO, LV).
 
 ---
 
-## Aliased Images vs. Fully Sampled (1/3)
+## U-Net Structure (2/2)
 
 <div align="center">
   <figure>
-    <img src="https://github.com/XiongWenye/xiongwenye.github.io/blob/master/files/Deep%20Learning%20Dynamic%20MRI%20Reconstruction/comparison_image_0.png?raw=true" alt="Comparison Frame 0" width="1000">
-    <figcaption><em>Fig: Fully sampled (left), Aliased (middle), Mask (right) - Frame 0</em></figcaption>
+    <img src="..\result\network.png" alt="Network">
+    <figcaption><em>Network</em></figcaption>
   </figure>
 </div>
 
 ---
 
-## Aliased Images vs. Fully Sampled (2/3)
+## Task (a): Baseline U-Net
+
+*   **Network:** Standard U-Net with skip connections.
+*   **Loss Function:** `MyBinaryCrossEntropy` (Sigmoid + `nn.BCELoss` per class).
+*   **Optimizer:** Adam (lr=0.01), ExponentialLR scheduler.
+*   **Training:** 50 epochs.
+
+---
+
+## Training Loss and validation Loss
 
 <div align="center">
   <figure>
-    <img src="https://github.com/XiongWenye/xiongwenye.github.io/blob/master/files/Deep%20Learning%20Dynamic%20MRI%20Reconstruction/comparison_image_1.png?raw=true" alt="Comparison Frame 1" width="1000">
-    <figcaption><em>Fig: Fully sampled (left), Aliased (middle), Mask (right) - Frame 1</em></figcaption>
+    <img src="..\result\baseline_unet.png" alt="Baseline Loss">
+    <figcaption><em>Baseline Loss</em></figcaption>
   </figure>
 </div>
 
 ---
 
-## Aliased Images vs. Fully Sampled (3/3)
+## Results: Dice Coefficients
+
+| Structure | Mean Dice | Std. Dev. |
+| :-------- | :-------- | :-------- |
+| RV        | 0.9519    | 0.0086    |
+| MYO       | 0.8734    | 0.0161    |
+| LV        | 0.8920    | 0.0310    |
+
+---
+
+## Segmentation Examples (1/3)
 
 <div align="center">
   <figure>
-    <img src="https://github.com/XiongWenye/xiongwenye.github.io/blob/master/files/Deep%20Learning%20Dynamic%20MRI%20Reconstruction/comparison_image_2.png?raw=true" alt="Comparison Frame 2" width="1000">
-    <figcaption><em>Fig: Fully sampled (left), Aliased (middle), Mask (right) - Frame 2</em></figcaption>
+    <img src="..\result\for_ppt\baseline_LV.png" alt="Baseline Segmentation Example" width="1000">
+    <figcaption><em> Baseline Segmentation Example LV</em></figcaption>
   </figure>
 </div>
 
 ---
 
-<div align="center">
-  <figure>
-    <img src="../assets/mask.png" alt="Comparison Frame 2" width="550">
-  </figure>
-</div>
-It is also clear to see that, for different dynamic frames, the undersampling masks are different.
-
----
-
-## Reconstruction Network: Dual UNet
-
-*   **Purpose:** Process real and imaginary parts separately.
-*   **Input:** Pseudo-complex images (real/imaginary as channels).
-*   **Features:**
-  *   Encoder-decoder with skip connections.
-  *   Attention mechanism (Channel & Spatial) in bottleneck.
-  *   Dropout (p=0.3).
-  *   LeakyReLU (negative_slope=0.1).
-  *   Weight Regularization.
-
----
-
-## Reconstruction Network: 3D ResNet
-
-*   **Purpose:** Integrate temporal information across frames.
-*   **Input:** Stacked outputs from the two UNets.
-*   **Features:**
-  *   3D Convolutions.
-  *   Residual connections (`BasicBlock`).
-  *   Lightweight design (1 block/layer).
-  *   Final 1x1x1 convolution.
-
----
-
-## Creativity: Addressing Challenges in Network Design
-
-* **Challenge 1: Pseudo-Complex Input:** Stacking dynamic images along the channel dimension created issues as real/imaginary parts weren't aligned.
-* **Solution 1: Dual UNet Branches:** Split input into separate real and imaginary processing branches using two UNets, concatenating them later. Added attention in bottlenecks to enhance spatial/channel correlation capture.
-* **Challenge 2: Capturing Temporal Correlation:** Standard 2D UNet structures don't effectively model changes over time.
-* **Solution 2: 3D ResNet Integration:** Added a 3D ResNet structure after the UNets specifically to process and fuse information across the temporal dimension (frames).
-
----
-## Network Architecture Detail
+## Segmentation Examples (2/3)
 
 <div align="center">
   <figure>
-    <img src="https://github.com/XiongWenye/xiongwenye.github.io/blob/master/files/Deep%20Learning%20Dynamic%20MRI%20Reconstruction/pipeline.png?raw=true" alt="Reconstruction Network" width="1000">
-    <figcaption><em>Fig: Detailed architecture showing dual UNet branches and 3D ResNet</em></figcaption>
+    <img src="..\result\for_ppt\baseline_MYO.png" alt="Baseline Segmentation Example" width="1000">
+    <figcaption><em> Baseline Segmentation Example MYO</em></figcaption>
   </figure>
 </div>
 
 ---
 
-## Results: Main Model (L2 Loss)
-
-*   **Metrics:**
-  *   Loss: mean = 0.00135 ± 0.00055
-  *   PSNR: mean = 29.084 ± 1.932
-  *   SSIM: mean = 0.844 ± 0.037
-*   Significant improvement over aliased images.
-
----
-
-<img src="../assets/Training%20Loss%20and%20Validation%20Loss.png" alt="loss rate" width="1000">
-
----
-
-## Reconstruction Examples (1/2)
-
-<div align="center">
-  <table>
-    <tr>
-      <td><img src="https://github.com/XiongWenye/xiongwenye.github.io/blob/master/files/Deep%20Learning%20Dynamic%20MRI%20Reconstruction/full_sampling_1.png?raw=true" alt="Full Sampling Image1" width="600"><br><em>Fig: Fully Sampled (Ground Truth)</em></td>
-      <td><img src="https://github.com/XiongWenye/xiongwenye.github.io/blob/master/files/Deep%20Learning%20Dynamic%20MRI%20Reconstruction/reconstruction_1.png?raw=true" alt="Reconstructed Image1" width="600"><br><em>Fig: Reconstructed Image</em></td>
-    </tr>
-  </table>
-</div>
-
----
-
-## Reconstruction Examples (2/2)
-
-<div align="center">
-  <table>
-    <tr>
-      <td><img src="https://github.com/XiongWenye/xiongwenye.github.io/blob/master/files/Deep%20Learning%20Dynamic%20MRI%20Reconstruction/full_sampling_2.png?raw=true" alt="Full Sampling Image2" width="600"><br><em>Fig: Fully Sampled (Ground Truth)</em></td>
-      <td><img src="https://github.com/XiongWenye/xiongwenye.github.io/blob/master/files/Deep%20Learning%20Dynamic%20MRI%20Reconstruction/reconstruction_2.png?raw=true" alt="Reconstructed Image2" width="600"><br><em>Fig: Reconstructed Image</em></td>
-    </tr>
-  </table>
-</div>
-
----
-
-## Ablation: Impact of Dropout & Dynamic LR
-
-*   **Model:** Trained without Dropout and with constant LR.
-*   **Results:**
-  *   PSNR: 24.154 (vs. 29.084)
-  *   SSIM: 0.743 (vs. 0.844)
-*   **Observation:** Clear signs of overfitting (validation loss). Dropout and dynamic LR are crucial for regularization and stable convergence.
-
----
+## Segmentation Examples (3/3)
 
 <div align="center">
   <figure>
-    <img src="../assets/Training Loss and Validation Loss No opt.png" alt="Training and Validation Loss without Optimizations" width="900">
+    <img src="..\result\for_ppt\baseline_RV.png" alt="Baseline Segmentation Example" width="1000">
+    <figcaption><em> Baseline Segmentation Example RV</em></figcaption>
   </figure>
 </div>
 
 ---
 
-## Ablation: Impact of L1 vs. L2 Loss
+## Comments
 
-* **Results (L1):** PSNR: 29.1511, SSIM: 0.8439
-* **Results (L2):** PSNR: 29.0845, SSIM: 0.8443
-* **PSNR vs. SSIM Trade-off:** L1 loss can lead to higher PSNR (pixel accuracy) but potentially lower SSIM (structural similarity) because it doesn't explicitly enforce structural consistency. In this specific case, SSIM was similar for both.
-* **Observations:** Both loss functions yielded high-quality reconstructions. L2 loss resulted in much lower mean loss values and slightly better metric stability (lower std dev).
-* **Recommendation:** Use L1/L2 if pixel recovery is the priority; consider structure-aware losses (e.g., L1+SSIM) if perceptual quality/structural fidelity is crucial. The original L2 model was retained for stability.
+*    **RV Segmentation**: Achieved the highest mean Dice score. This is often expected as the RV is typically a large, relatively well-defined structure with good contrast against surrounding tissues in many MRI sequences.
+*    **LV Segmentation**: Also showed good performance. The LV cavity is usually clearly visible.
+*    **MYO Segmentation**: Had the lowest mean Dice score. The myocardium is a thinner, more complex structure surrounding the LV, and its boundaries, especially with the LV cavity (endocardium) and epicardium, can be more challenging to delineate accurately, potentially leading to lower overlap scores.
+*    The standard deviations are relatively small, indicating consistent performance across the test slices.
 
 ---
 
+
+## Task (b): U-Net without Skip Connections
+
+*   **Modification:** `UNet_NoShortcut` using `Up_NoShortcut` modules (no concatenation from encoder).
+*   **Training:** Same as baseline (BCE Loss, lr=0.01, 50 epochs).
+*   **Purpose:** Evaluate the importance of skip connections.
+
+---
+
+
+## Training Loss and validation Loss (Baseline)
+
+  <div style="text-align: center; flex: 1;">
+    <img src="../result/baseline_unet.png" alt="Loss Curve for Baseline" style="width:50%; max-height:400px; border: 1px solid #ccc;">
+    <p style="font-size: 0.8em;"><em> Training and Validation Loss for Baseline U-Net.</em></p>
+  </div>
+
+---
+
+## Training Loss and validation Loss (No Short-cut)
+
+  <div style="text-align: center; flex: 1;">
+    <img src="../result/no_shortcut_unet.png" alt="Loss Curve for Baseline without shortcut" style="width:80%; max-height:400px; border: 1px solid #ccc;">
+    <p style="font-size: 0.8em;"><em> Training and Validation Loss for Baseline U-Net without shortcut.</em></p>
+  </div>
+
+---
+
+## Results: Dice Coefficients
+
+| Structure | Baseline DSC | No Shortcut DSC |
+| :-------- | :----------- | :-------------- |
+| RV Mean   | 0.9519       | 0.9260          |
+| MYO Mean  | 0.8734       | 0.8223          |
+| LV Mean   | 0.8920       | 0.8588          |
+| RV std   | 0.0086       | 0.0111          |
+| MYO std  | 0.0161       | 0.0168          |
+| LV std   | 0.0310       | 0.0296          |
+
+---
+
+## Discussion - Impact of No Skip Connections
+
+*   **Significant Drop in Performance:** All structures showed a noticeable decrease in DSC.
+*   **Reason:** Skip connections provide high-resolution spatial information from the encoder to the decoder, crucial for accurate boundary localization. They also aid gradient flow.
+*   **Conclusion:** Skip connections are vital for U-Net's segmentation accuracy in this task.
+
+---
+
+## Task (c): U-Net with Data Augmentation
+
+*   **Network:** Baseline U-Net architecture.
+*   **Augmentations (Training Set Only):**
+    *   `RandomHorizontalFlip`, `RandomRotation(15°)`,
+    *   `RandomAffine(degrees=50, translate=(0.1,0.1), scale=(0.9,1.1), shear=5)`.
+*   **Implementation:** `SegmentationDataset` ensuring identical transforms for image and mask.
+*   **Training:** BCE Loss, lr=0.01, 50 epochs.
+
+---
+
+## Training Loss and validation Loss (Baseline)
+
+  <div style="text-align: center; flex: 1;">
+    <img src="../result/baseline_unet.png" alt="Loss Curve for Baseline" style="width:50%; max-height:400px; border: 1px solid #ccc;">
+    <p style="font-size: 0.8em;"><em> Training and Validation Loss for Baseline U-Net.</em></p>
+  </div>
+
+---
+
+## Training Loss and validation Loss (with Data Augmentation)
+
+  <div style="text-align: center; flex: 1;">
+    <img src="../result/baseline_unet_data_aug.png" alt="Loss Curve for Baseline with data aug" style="width:80%; max-height:400px; border: 1px solid #ccc;">
+    <p style="font-size: 0.8em;"><em> Training and Validation Loss for Baseline with Data Augmentation.</em></p>
+  </div>
+
+---
+
+## Results: Dice Coefficients
+| Structure | Baseline DSC | Data Aug. DSC |
+| :-------- | :----------- | :------------ |
+| RV Mean       | 0.9519       | 0.9276        |
+| MYO Mean      | 0.8734       | 0.8469        |
+| LV Mean       | 0.8920       | 0.8635        |
+| RV std   | 0.0086       | 0.0107          |
+| MYO std  | 0.0161       | 0.0149          |
+| LV std   | 0.0310       | 0.0384          |
+
+
+---
+
+## Discussion - Impact of Data Augmentation
+
+*   **Unexpected DSC Decrease:** The specific augmentation strategy led to slightly lower Dice scores.
+*   **Possible Reasons:**
+    *   Augmentation parameters might be too aggressive.
+    *   Original dataset might be sufficient, or augmentations not perfectly matching test set variations.
+---
+
+
+## Task (d): U-Net with Soft Dice Loss
+
+*   **Network:** Baseline U-Net architecture.
+*   **Training Data:** Original Non-Augmented Training Set.
+*   **Loss Function:** `SoftDiceLoss`
+*   **Optimizer:** Adam (lr=0.001), ExponentialLR scheduler.
+*   **Training:** 50 epochs.
+
+---
+
+## Training Loss and validation Loss (Baseline with BCE Loss)
+
+  <div style="text-align: center; flex: 1;">
+    <img src="../result/baseline_unet.png" alt="Loss Curve for Baseline" style="width:50%; max-height:400px; border: 1px solid #ccc;">
+    <p style="font-size: 0.8em;"><em> Training and Validation Loss for Baseline U-Net.</em></p>
+  </div>
+
+---
+
+## Training Loss and validation Loss (Baseline with soft Dice Loss)
+
+  <div style="text-align: center; flex: 1;">
+    <img src="../result/soft_dice_loss.png" alt="Loss Curve for Baseline with soft Dice Loss" style="width:80%; max-height:400px; border: 1px solid #ccc;">
+    <p style="font-size: 0.8em;"><em> Training and Validation Loss for Baseline with  soft Dice Loss.</em></p>
+  </div>
+
+---
+
+## Results: Dice Coefficients
+
+| Structure | Baseline with BCE Loss | Baseline with soft Dice Loss |
+| :-------- | :--------| :------------|
+| RV Mean       | 0.9519   | **0.9566**   |
+| MYO Mean      | 0.8734   | **0.8962**   |
+| LV Mean       | 0.8920   | **0.8998**   |
+| RV std   | 0.0086       | 0.0100          |
+| MYO std  | 0.0161       | 0.0100          |
+| LV std   | 0.0310       | 0.0371          |
+
+---
+
+## Segmentation Examples (1/3)
+
 <div align="center">
   <figure>
-    <img src="../assets/Training Loss and Validation Loss L1.png" alt="Training and Validation Loss with L1 Loss" width="900">
+    <img src="..\result\for_ppt\soft_dice_loss_LV.png" alt="Baseline with Soft Dice Loss Segmentation Example" width="1000">
+    <figcaption><em> Baseline with Soft Dice Loss Segmentation Example LV</em></figcaption>
   </figure>
 </div>
 
 ---
 
-## Exploration: Unrolled Denoising Network
-
-*   **Concept:** Cascade base network with data consistency layers.
-*   **Models:** 2 Cascades (C2), 3 Cascades (C3).
-*   **Training:** Increased memory/time significantly. Trained only 300 epochs.
-
-| Model     | Epochs | GPU Mem | PSNR  | SSIM  |
-| :-------- | :----- | :------ | :---- | :---- |
-| Original  | 800    | ~10GB   | 29.08 | 0.844 |
-| Cascade 2 | 300    | 18GB    | 28.87 | 0.834 |
-| Cascade 3 | 300    | 24GB    | 28.96 | 0.807 |
-
-*   **Observation:** Performance did not improve over original model, possibly due to limited training data/epochs or base network complexity.
-
----
-
-## Unrolled Network Loss (Cascade 3)
+## Segmentation Examples (2/3)
 
 <div align="center">
   <figure>
-    <img src="../assets/Training Loss and Validation Loss Unrolled.png" alt="Training and Validation Loss for Cascade 3" width="700">
-    <figcaption><em>Fig: Loss Curves for 3-Cascade Unrolled Network (300 Epochs)</em></figcaption>
+    <img src="..\result\for_ppt\soft_dice_loss_MYO.png" alt="Baseline with Soft Dice Loss Segmentation Example" width="1000">
+    <figcaption><em> Baseline with Soft Dice Loss Segmentation Example MYO</em></figcaption>
   </figure>
 </div>
 
 ---
 
-## Conclusion
+## Segmentation Examples (3/3)
 
-*   Proposed Dual UNet + 3D ResNet architecture effectively reconstructs dynamic MRI from undersampled data (PSNR ~29.1, SSIM ~0.84).
-*   Dropout and dynamic learning rate are essential for optimal performance.
-*   L1 and L2 loss functions yield comparable results; L2 chosen for stability.
-*   Unrolled networks showed potential but require further investigation (more data, longer training).
+<div align="center">
+  <figure>
+    <img src="..\result\for_ppt\soft_dice_loss_RV.png" alt="Baseline with Soft Dice Loss Segmentation Example" width="1000">
+    <figcaption><em> Baseline with Soft Dice Loss Segmentation Example RV</em></figcaption>
+  </figure>
+</div>
 
+---
+
+## Task (e): Other Improvements
+
+---
+
+## Discussion
+
+*   When trained on the same non-augmented data, **Soft Dice Loss significantly outperformed BCE Loss** in terms of Dice Coefficient for all structures.
+*   The improvement is most notable for MYO segmentation.
+*   This suggests that directly optimizing a Dice-based metric is beneficial for this segmentation task.
+
+---
+
+## Overall Performance Summary (Dice Coefficients)
+
+| Model  | RV Mean DSC | MYO Mean DSC | LV Mean DSC |
+| :-------------------------------------- | :---------- | :----------- | :---------- |
+| (a) Baseline U-Net (BCE)                | 0.9519      | 0.8734       | 0.8920      |
+| (b) U-Net No Shortcut (BCE)             | 0.9260      | 0.8223       | 0.8588      |
+| (c) U-Net + Data Aug. (BCE)           | 0.9276      | 0.8469       | 0.8635      |
+| **(d) U-Net (Soft Dice Loss)** | **0.9566**  | **0.8962**   | **0.8998**  |
+
+The U-Net trained with Soft Dice Loss (on non-augmented data) achieved the highest Dice scores.
+
+---
+## Conclusion & Future Work
+
+*   **Key Findings:**
+    *   U-Net with **Soft Dice Loss (trained on non-augmented data) yielded the best segmentation performance** (Dice scores).
+    *   Skip connections are crucial.
+    *   The specific data augmentation strategy tested did not improve Dice scores over the baseline non-augmented models.
+*   **Future Work:**
+
+
+---
+
+## Thanks!
