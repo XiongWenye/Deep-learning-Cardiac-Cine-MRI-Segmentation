@@ -465,7 +465,6 @@ class SegmentationDataset(data.Dataset):
         return image, label
 
 
-
 def extract_inputs_labels(dataset):
     inputs = []
     labels = []
@@ -591,7 +590,7 @@ class SoftDiceLoss(nn.Module):
         dice_loss = 1 - dice_coefficient_per_class.mean() 
         return dice_loss
 
-print("\n--- Training UNet with Soft Dice Loss (and Data Augmentation for training) ---")
+print("\n--- Training UNet with Soft Dice Loss (No Data Augmentation) ---")
 net_soft_dice = UNet(n_channels=1, n_classes=3, C_base=32)
 optimizer_soft_dice = torch.optim.Adam(net_soft_dice.parameters(), lr=0.001) # lr=0.001 as per user
 lr_scheduler_soft_dice = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer_soft_dice, gamma=0.95)
@@ -605,11 +604,11 @@ solver_soft_dice = lab.Solver( # Renamed solver
     lr_scheduler=lr_scheduler_soft_dice,
 )
 
-# Training with augmented data as per user's setup for other models
+# Training with non-augmented data
 solver_soft_dice.train(
     epochs=50, # Fewer for testing
-    data_loader=dataloader_train_aug, # Using augmented training data
-    val_loader=dataloader_val_aug,   # Using non-augmented validation data
+    data_loader=dataloader_train, # Using original non-augmented training data
+    val_loader=dataloader_val,   # Using original non-augmented validation data
     img_name='soft_dice_loss' # Model/run name
 )
 
@@ -641,6 +640,33 @@ std_accuracy_lv_soft_dice  = np.std([score[2] for score in accuracy_scores_soft_
 print(f'RV Accuracy With Soft Dice Loss: Mean={mean_accuracy_rv_soft_dice:.4f}, SD={std_accuracy_rv_soft_dice:.4f}')
 print(f'MYO Accuracy With Soft Dice Loss: Mean={mean_accuracy_myo_soft_dice:.4f}, SD={std_accuracy_myo_soft_dice:.4f}')
 print(f'LV Accuracy With Soft Dice Loss: Mean={mean_accuracy_lv_soft_dice:.4f}, SD={std_accuracy_lv_soft_dice:.4f}')
+dice_scores_soft_dice = []
+# net_soft_dice is already on device and in eval mode
+
+for images, labels_gt in dataloader_test:
+    images = images.to(device)
+    labels_gt = labels_gt.to(device)
+    with torch.no_grad():
+        preds_logits = net_soft_dice(images)
+    preds_binary = torch.sigmoid(preds_logits) > 0.5
+    labels_multilabel = convert_to_multi_labels(labels_gt)
+
+    dice_rv_soft_dice = get_DC(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
+    dice_myo_soft_dice = get_DC(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
+    dice_lv_soft_dice = get_DC(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
+    dice_scores_soft_dice.append((dice_rv_soft_dice.item(), dice_myo_soft_dice.item(), dice_lv_soft_dice.item()))
+
+mean_dice_rv_soft_dice = np.mean([score[0] for score in dice_scores_soft_dice])
+std_dice_rv_soft_dice = np.std([score[0] for score in dice_scores_soft_dice])
+mean_dice_myo_soft_dice = np.mean([score[1] for score in dice_scores_soft_dice])
+std_dice_myo_soft_dice = np.std([score[1] for score in dice_scores_soft_dice])
+mean_dice_lv_soft_dice = np.mean([score[2] for score in dice_scores_soft_dice])
+std_dice_lv_soft_dice = np.std([score[2] for score in dice_scores_soft_dice])
+
+print(f'RV Dice Coefficient With Soft Dice Loss: Mean={mean_dice_rv_soft_dice:.4f}, SD={std_dice_rv_soft_dice:.4f}')
+print(f'MYO Dice Coefficient With Soft Dice Loss: Mean={mean_dice_myo_soft_dice:.4f}, SD={std_dice_myo_soft_dice:.4f}')
+print(f'LV Dice Coefficient With Soft Dice Loss: Mean={mean_dice_lv_soft_dice:.4f}, SD={std_dice_lv_soft_dice:.4f}')
+
 
 # Save segmentation results for UNet with Soft Dice Loss
 save_segmentation_results(net_soft_dice, test_set, device, 'result', num_samples=3, model_name='soft_dice_loss_unet') # Changed model_name for clarity
@@ -660,13 +686,6 @@ with open(output_file_path, 'w') as file:
     file.write(f'RV Dice Coefficient Without Shortcut: Mean={mean_dice_rv_no_shortcut:.4f}, SD={std_dice_rv_no_shortcut:.4f}\n')
     file.write(f'MYO Dice Coefficient Without Shortcut: Mean={mean_dice_myo_no_shortcut:.4f}, SD={std_dice_myo_no_shortcut:.4f}\n')
     file.write(f'LV Dice Coefficient Without Shortcut: Mean={mean_dice_lv_no_shortcut:.4f}, SD={std_dice_lv_no_shortcut:.4f}\n\n')
-
-    # Accuracy for baseline UNet (Data Aug section in original was for a new model)
-    # The original code calculated accuracy for net_data_aug and net_soft_dice.
-    # Let's assume the "RV Accuracy: Mean={mean_accuracy_rv}, SD={std_accuracy_rv}" 
-    # in the original output file was a typo and meant for one of the later models,
-    # or it was from an earlier run of the baseline where accuracy was also computed.
-    # For now, I will only write metrics that were explicitly computed in this script flow.
     
     file.write("--- UNet with Data Augmentation ---\n")
     file.write(f'RV Accuracy (Data Aug): Mean={mean_accuracy_rv_aug:.4f}, SD={std_accuracy_rv_aug:.4f}\n')
@@ -680,6 +699,9 @@ with open(output_file_path, 'w') as file:
     file.write(f'RV Accuracy With Soft Dice Loss: Mean={mean_accuracy_rv_soft_dice:.4f}, SD={std_accuracy_rv_soft_dice:.4f}\n')
     file.write(f'MYO Accuracy With Soft Dice Loss: Mean={mean_accuracy_myo_soft_dice:.4f}, SD={std_accuracy_myo_soft_dice:.4f}\n')
     file.write(f'LV Accuracy With Soft Dice Loss: Mean={mean_accuracy_lv_soft_dice:.4f}, SD={std_accuracy_lv_soft_dice:.4f}\n')
+    file.write(f'RV Dice Coefficient With Soft Dice Loss: Mean={mean_dice_rv_soft_dice:.4f}, SD={std_dice_rv_soft_dice:.4f}\n')
+    file.write(f'MYO Dice Coefficient With Soft Dice Loss: Mean={mean_dice_myo_soft_dice:.4f}, SD={std_dice_myo_soft_dice:.4f}\n')
+    file.write(f'LV Dice Coefficient With Soft Dice Loss: Mean={mean_dice_lv_soft_dice:.4f}, SD={std_dice_lv_soft_dice:.4f}\n\n')
 
 print(f"All metrics saved to {output_file_path}")
 print("Segmentation sample images saved in 'result/' subdirectories.")

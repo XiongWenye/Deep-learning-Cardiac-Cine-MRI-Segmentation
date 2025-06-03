@@ -42,7 +42,7 @@
 \pgfplotsset{compat=1.18}
 
 
-\title{BME1312 Project1 Report: Deep Learning for MRI Reconstruction}
+\title{BME1312 Project2 Report: Deep learning Cardiac Cine MRI Segmentation}
 
 
 % The \author macro works with any number of authors. There are two commands
@@ -83,10 +83,10 @@
 
 
 \begin{abstract}
-This report details the implementation and evaluation of U-Net based deep learning models for cardiac segmentation 
-in cine MRI scans. The project focuses on segmenting three key structures: the Left Ventricle (LV), Right Ventricle (RV), 
-and Myocardium (MYO). We explore the standard U-Net architecture, the impact of removing skip connections, the effect of 
-data augmentation, and the performance difference between Cross-Entropy loss and Soft Dice loss.
+  This report details the implementation and evaluation of U-Net based deep learning models for cardiac segmentation
+  in cine MRI scans. The project focuses on segmenting three key structures: the Left Ventricle (LV), Right Ventricle (RV),
+  and Myocardium (MYO). We explore the standard U-Net architecture, the impact of removing skip connections, the effect of
+  data augmentation, and the performance difference between Cross-Entropy loss and Soft Dice loss.
 \end{abstract}
 
 \section{Introduction}
@@ -107,21 +107,21 @@ The U-Net architecture consists of:
 \begin{itemize}
   \item \texttt{DoubleConv}: A block of two sequential (Conv2D 3x3, BatchNorm2D, ReLU) operations.
   \item \texttt{Down}: Max pooling (2x2) followed by a \texttt{DoubleConv} block for downsampling in the encoder.
-  \item \texttt{Up}: Upsampling (bilinear or transpose convolution) followed by concatenation with features from the 
-  corresponding encoder layer (skip connection) and a \texttt{DoubleConv} block. Padding is used to handle potential 
-  size mismatches during concatenation.
+  \item \texttt{Up}: Upsampling (bilinear or transpose convolution) followed by concatenation with features from the
+        corresponding encoder layer (skip connection) and a \texttt{DoubleConv} block. Padding is used to handle potential
+        size mismatches during concatenation.
 \end{itemize}
 
 Our baseline is as below:
 \begin{itemize}
-  \item \textbf{Network}: The standard \texttt{UNet} class as described above, with \texttt{C\_base=32}, 1 input channel, 
-  and 3 output classes. Bilinear upsampling was used.
-  \item \textbf{Loss Function}: A custom \texttt{MyBinaryCrossEntropy} loss was used. This involves applying a Sigmoid 
-  function to the model's output logits to get probabilities, then computing \texttt{nn.BCELoss} against the 3-channel 
-  binary ground truth masks. The learning rate was 0.01.
-  \item \textbf{Evaluation}: Mean and standard deviation of the Dice Similarity Coefficient (DSC) for LV, RV, and MYO 
-  were calculated on the test set. Training and validation loss curves were plotted by the solver. 
-  Example segmentation results were saved.
+  \item \textbf{Network}: The standard \texttt{UNet} class as described above, with \texttt{C\_base=32}, 1 input channel,
+        and 3 output classes. Bilinear upsampling was used.
+  \item \textbf{Loss Function}: A custom \texttt{MyBinaryCrossEntropy} loss was used. This involves applying a Sigmoid
+        function to the model's output logits to get probabilities, then computing \texttt{nn.BCELoss} against the 3-channel
+        binary ground truth masks. The learning rate was 0.01.
+  \item \textbf{Evaluation}: Mean and standard deviation of the Dice Similarity Coefficient (DSC) for LV, RV, and MYO
+        were calculated on the test set. Training and validation loss curves were plotted by the solver.
+        Example segmentation results were saved.
 \end{itemize}
 
 \subsection{Experiments and Results}
@@ -133,7 +133,7 @@ The training loss and validation loss of the baseline U-Net are shown in figure 
   \label{fig:baseline_unet_loss}
 \end{figure}
 
-And here are example segmentation results in figure \ref{fig:baseline_unet_segmentation_example1}, 
+And here are example segmentation results in figure \ref{fig:baseline_unet_segmentation_example1},
 \ref{fig:baseline_unet_segmentation_example2}, \ref{fig:baseline_unet_segmentation_example3}
 \begin{figure}[H]
   \centering
@@ -156,31 +156,31 @@ And here are example segmentation results in figure \ref{fig:baseline_unet_segme
 
 The baseline U-Net trained with Cross-Entropy loss achieved the following Dice scores:
 \begin{table}[H]
-\centering
-\caption{Dice Coefficients for Baseline U-Net (Task a)}
-\label{tab:baseline_unet}
-\begin{tabular}{lcc}
-\toprule
-Structure & Mean      & Standard Deviation \\
-\midrule
-RV        & 0.9498    & 0.0089             \\
-MYO       & 0.8755    & 0.0120             \\
-LV        & 0.8960    & 0.0361             \\
-\bottomrule
-\end{tabular}
+  \centering
+  \caption{Dice Coefficients for Baseline U-Net (Task a)}
+  \label{tab:baseline_unet}
+  \begin{tabular}{lcc}
+    \toprule
+    Structure & Mean   & Standard Deviation \\
+    \midrule
+    RV        & 0.9498 & 0.0089             \\
+    MYO       & 0.8755 & 0.0120             \\
+    LV        & 0.8960 & 0.0361             \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \subsection{Discussion}
 The baseline U-Net (Table \ref{tab:baseline_unet}) demonstrated strong segmentation performance.
 \begin{itemize}
-  \item \textbf{RV Segmentation}: Achieved the highest mean Dice score (0.9498). This is often expected as the RV is 
-  typically a large, relatively well-defined structure with good contrast against surrounding tissues in many MRI sequences.
+  \item \textbf{RV Segmentation}: Achieved the highest mean Dice score (0.9498). This is often expected as the RV is
+        typically a large, relatively well-defined structure with good contrast against surrounding tissues in many MRI sequences.
   \item \textbf{LV Segmentation}: Also showed good performance with a mean Dice of 0.8960. The LV cavity is usually clearly visible.
-  \item \textbf{MYO Segmentation}: Had the lowest mean Dice score (0.8755). The myocardium is a thinner, more complex structure 
-  surrounding the LV, and its boundaries, especially with the LV cavity (endocardium) and epicardium, can be more challenging to 
-  delineate accurately, potentially leading to lower overlap scores.
+  \item \textbf{MYO Segmentation}: Had the lowest mean Dice score (0.8755). The myocardium is a thinner, more complex structure
+        surrounding the LV, and its boundaries, especially with the LV cavity (endocardium) and epicardium, can be more challenging to
+        delineate accurately, potentially leading to lower overlap scores.
 \end{itemize}
-The standard deviations are relatively small, indicating consistent performance across the test slices. Overall, the baseline U-Net 
+The standard deviations are relatively small, indicating consistent performance across the test slices. Overall, the baseline U-Net
 provides a solid foundation for cardiac segmentation.
 
 
@@ -189,42 +189,42 @@ provides a solid foundation for cardiac segmentation.
 
 \subsection{Structure}
 \begin{itemize}
-  \item \textbf{Network Modification}: A \texttt{UNet\_NoShortcut} model was implemented. This involved creating an 
-  \texttt{Up\_NoShortcut} module that performs upsampling and convolution but does not concatenate features from the encoder 
-  path. The \texttt{forward} method of \texttt{Up\_NoShortcut} only processes the feature map from the previous decoder layer.
-  \item \textbf{Retraining}: This modified U-Net was trained following the same procedure as the baseline U-Net, 
-  including the same dataset split, number of epochs, optimizer, learning rate, and \texttt{MyBinaryCrossEntropy} loss.
+  \item \textbf{Network Modification}: A \texttt{UNet\_NoShortcut} model was implemented. This involved creating an
+        \texttt{Up\_NoShortcut} module that performs upsampling and convolution but does not concatenate features from the encoder
+        path. The \texttt{forward} method of \texttt{Up\_NoShortcut} only processes the feature map from the previous decoder layer.
+  \item \textbf{Retraining}: This modified U-Net was trained following the same procedure as the baseline U-Net,
+        including the same dataset split, number of epochs, optimizer, learning rate, and \texttt{MyBinaryCrossEntropy} loss.
 \end{itemize}
 
 \subsection{Performance}
 The U-Net variant without skip connections, trained under identical conditions, yielded:
 \begin{table}[H]
-\centering
-\caption{Dice Coefficients for U-Net without Skip Connections (Task b)}
-\label{tab:no_shortcut_unet}
-\begin{tabular}{lcc}
-\toprule
-Structure & Mean Dice & Standard Deviation \\
-\midrule
-RV        & 0.9100    & 0.0171             \\
-MYO       & 0.8044    & 0.0185             \\
-LV        & 0.8499    & 0.0306             \\
-\bottomrule
-\end{tabular}
+  \centering
+  \caption{Dice Coefficients for U-Net without Skip Connections (Task b)}
+  \label{tab:no_shortcut_unet}
+  \begin{tabular}{lcc}
+    \toprule
+    Structure & Mean Dice & Standard Deviation \\
+    \midrule
+    RV        & 0.9100    & 0.0171             \\
+    MYO       & 0.8044    & 0.0185             \\
+    LV        & 0.8499    & 0.0306             \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \subsection{Discussion}
-Comparing Table \ref{tab:no_shortcut_unet} with Table \ref{tab:baseline_unet}, removing skip connections from the U-Net architecture 
+Comparing Table \ref{tab:no_shortcut_unet} with Table \ref{tab:baseline_unet}, removing skip connections from the U-Net architecture
 resulted in a significant degradation of performance across all three structures:
 \begin{itemize}
   \item RV Dice: $0.9498 \rightarrow 0.9100$
   \item MYO Dice: $0.8755 \rightarrow 0.8044$
   \item LV Dice: $0.8960 \rightarrow 0.8499$
 \end{itemize}
-This substantial drop highlights the critical role of skip connections. Skip connections allow the decoder to reuse high-resolution 
-feature maps from the encoder, which contain fine-grained spatial information lost during downsampling. This helps in precise 
-localization and reconstruction of segmentation boundaries. Additionally, they facilitate better gradient flow during backpropagation, 
-mitigating vanishing gradient problems in deeper networks and aiding convergence. The MYO, being the most intricate structure, 
+This substantial drop highlights the critical role of skip connections. Skip connections allow the decoder to reuse high-resolution
+feature maps from the encoder, which contain fine-grained spatial information lost during downsampling. This helps in precise
+localization and reconstruction of segmentation boundaries. Additionally, they facilitate better gradient flow during backpropagation,
+mitigating vanishing gradient problems in deeper networks and aiding convergence. The MYO, being the most intricate structure,
 suffered the largest relative drop in performance.
 
 
@@ -233,30 +233,30 @@ suffered the largest relative drop in performance.
 
 \subsection{Structure}
 \begin{itemize}
-  \item \textbf{Data Augmentation Techniques}: Augmentations were applied only to the training dataset using 
-  \texttt{torchvision.transforms}. A custom \texttt{SegmentationDataset} class was used. In its \texttt{\_\_getitem\_\_} method, 
-  the image and its corresponding label (both single-channel tensors) were stacked along a new dimension before applying the 
-  transformations. This ensures that geometric augmentations are applied identically to both the image and its mask.
-  \item \textbf{Retraining}: The baseline U-Net architecture (with skip connections) was retrained using the augmented training data. 
-  The validation set remained un-augmented. The loss function was \texttt{MyBinaryCrossEntropy}, and the learning rate was 0.01.
+  \item \textbf{Data Augmentation Techniques}: Augmentations were applied only to the training dataset using
+        \texttt{torchvision.transforms}. A custom \texttt{SegmentationDataset} class was used. In its \texttt{\_\_getitem\_\_} method,
+        the image and its corresponding label (both single-channel tensors) were stacked along a new dimension before applying the
+        transformations. This ensures that geometric augmentations are applied identically to both the image and its mask.
+  \item \textbf{Retraining}: The baseline U-Net architecture (with skip connections) was retrained using the augmented training data.
+        The validation set remained un-augmented. The loss function was \texttt{MyBinaryCrossEntropy}, and the learning rate was 0.01.
 \end{itemize}
 
 \subsection{Performance}
 The baseline U-Net architecture trained with data augmentation on the training set resulted in:
 \begin{table}[H]
-\centering
-\caption{Performance of U-Net with Data Augmentation (Task c)}
-\label{tab:data_aug_unet}
-\begin{tabular}{l|cc|cc}
-\toprule
-\multicolumn{1}{c|}{Structure} & \multicolumn{2}{c|}{Accuracy} & \multicolumn{2}{c}{Dice Coefficient} \\
-          & Mean      & SD        & Mean          & SD          \\
-\midrule
-RV        & 0.9988    & 0.0002    & 0.9350        & 0.0109      \\
-MYO       & 0.9971    & 0.0003    & 0.8512        & 0.0160      \\
-LV        & 0.9978    & 0.0005    & 0.8673        & 0.0353      \\
-\bottomrule
-\end{tabular}
+  \centering
+  \caption{Performance of U-Net with Data Augmentation (Task c)}
+  \label{tab:data_aug_unet}
+  \begin{tabular}{l|cc|cc}
+    \toprule
+    \multicolumn{1}{c|}{Structure} & \multicolumn{2}{c|}{Accuracy} & \multicolumn{2}{c}{Dice Coefficient}                   \\
+                                   & Mean                          & SD                                   & Mean   & SD     \\
+    \midrule
+    RV                             & 0.9988                        & 0.0002                               & 0.9350 & 0.0109 \\
+    MYO                            & 0.9971                        & 0.0003                               & 0.8512 & 0.0160 \\
+    LV                             & 0.9978                        & 0.0005                               & 0.8673 & 0.0353 \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \subsection{Discussion}
@@ -266,14 +266,14 @@ Comparing the Dice coefficients from Table \ref{tab:data_aug_unet} with the base
   \item MYO Dice: $0.8755 \rightarrow 0.8512$
   \item LV Dice: $0.8960 \rightarrow 0.8673$
 \end{itemize}
-We can find out that the data augmentation strategy employed led to a slight decrease in Dice coefficients for all structures compared to the 
-baseline model trained on un-augmented data. While data augmentation is generally expected to improve generalization and robustness, 
+We can find out that the data augmentation strategy employed led to a slight decrease in Dice coefficients for all structures compared to the
+baseline model trained on un-augmented data. While data augmentation is generally expected to improve generalization and robustness,
 several factors could contribute to this outcome:
 \begin{itemize}
-  \item 
+  \item
 \end{itemize}
-Despite the drop in Dice scores, the pixel-wise accuracy for the augmented model (Table \ref{tab:data_aug_unet}) is very high 
-(e.g., RV accuracy 0.9988). However, accuracy can be misleading in segmentation tasks, especially with class imbalance 
+Despite the drop in Dice scores, the pixel-wise accuracy for the augmented model (Table \ref{tab:data_aug_unet}) is very high
+(e.g., RV accuracy 0.9988). However, accuracy can be misleading in segmentation tasks, especially with class imbalance
 (background pixels dominating), whereas Dice is more sensitive to boundary overlap.
 
 
@@ -282,43 +282,43 @@ Despite the drop in Dice scores, the pixel-wise accuracy for the augmented model
 
 \subsection{Structure}
 \begin{itemize}
-  \item \textbf{Loss Function Modification}: A \texttt{SoftDiceLoss} class was implemented. This loss calculates the Dice 
-  coefficient directly on the sigmoid probabilities of the model's output and the multi-channel binary ground truth. The 
-  loss is defined as $1 - \text{mean}(\text{Dice\_per\_class})$. A smoothing factor of 1.0 was added to the numerator and 
-  denominator to maintain stability.
-  \item \textbf{Retraining}: The U-Net model (same architecture as baseline) was trained using the augmented training 
-  dataset (as in Task c) but with the \texttt{SoftDiceLoss}. The learning rate for the Adam optimizer was set to 0.001 for this task.
+  \item \textbf{Loss Function Modification}: A \texttt{SoftDiceLoss} class was implemented. This loss calculates the Dice
+        coefficient directly on the sigmoid probabilities of the model's output and the multi-channel binary ground truth. The
+        loss is defined as $1 - \text{mean}(\text{Dice\_per\_class})$. A smoothing factor of 1.0 was added to the numerator and
+        denominator to maintain stability.
+  \item \textbf{Retraining}: The U-Net model (same architecture as baseline) was trained using the augmented training
+        dataset (as in Task c) but with the \texttt{SoftDiceLoss}. The learning rate for the Adam optimizer was set to 0.001 for this task.
 \end{itemize}
 
 \subsection{Performance}
 The U-Net trained with data augmentation and Soft Dice Loss achieved the following pixel-wise accuracies:
 \begin{table}[H]
-\centering
-\caption{Accuracy for U-Net with Soft Dice Loss (Task d)}
-\label{tab:soft_dice_unet}
-\begin{tabular}{lcc}
-\toprule
-Structure & Mean Accuracy & Standard Deviation \\
-\midrule
-RV        & 0.9992      & 0.0001             \\
-MYO       & 0.9979      & 0.0002             \\
-LV        & 0.9980      & 0.0007             \\
-\bottomrule
-\end{tabular}
+  \centering
+  \caption{Accuracy for U-Net with Soft Dice Loss (Task d)}
+  \label{tab:soft_dice_unet}
+  \begin{tabular}{lcc}
+    \toprule
+    Structure & Mean Accuracy & Standard Deviation \\
+    \midrule
+    RV        & 0.9992        & 0.0001             \\
+    MYO       & 0.9979        & 0.0002             \\
+    LV        & 0.9980        & 0.0007             \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
 \subsection{Impact of Soft Dice Loss}
-The U-Net trained with Soft Dice Loss (and data augmentation) was primarily evaluated using pixel-wise accuracy 
-(Table \ref{tab:soft_dice_unet}). Comparing these accuracies to those from the U-Net trained with BCE loss and 
+The U-Net trained with Soft Dice Loss (and data augmentation) was primarily evaluated using pixel-wise accuracy
+(Table \ref{tab:soft_dice_unet}). Comparing these accuracies to those from the U-Net trained with BCE loss and
 data augmentation (Table \ref{tab:data_aug_unet}):
 \begin{itemize}
   \item RV Accuracy: $0.9988 \rightarrow 0.9992 \text{ (Soft Dice)}$
   \item MYO Accuracy: $0.9971 \rightarrow 0.9979 \text{ (Soft Dice)}$
   \item LV Accuracy: $0.9978 \rightarrow 0.9980 \text{ (Soft Dice)}$
 \end{itemize}
-The Soft Dice Loss resulted in slightly higher pixel-wise accuracies for all structures. This is a positive indication. 
-The Soft Dice Loss directly optimizes a surrogate of the Dice coefficient, which is often beneficial for segmentation tasks, 
-particularly when dealing with class imbalance, as it focuses on the overlap between prediction and ground truth rather 
+The Soft Dice Loss resulted in slightly higher pixel-wise accuracies for all structures. This is a positive indication.
+The Soft Dice Loss directly optimizes a surrogate of the Dice coefficient, which is often beneficial for segmentation tasks,
+particularly when dealing with class imbalance, as it focuses on the overlap between prediction and ground truth rather
 than just classifying individual pixels.
 
 
@@ -332,12 +332,12 @@ than just classifying individual pixels.
 This project successfully implemented and evaluated U-Net based models for cardiac cine MRI segmentation. Key findings include:
 \begin{enumerate}
   \item The baseline U-Net provides strong segmentation performance for RV, LV, and MYO, with RV being the best-segmented structure.
-  \item Skip connections are essential for U-Net's performance in this task. Their removal led to a significant decline in Dice scores, 
-  confirming their importance for feature reuse and precise localization.
-  \item The specific data augmentation strategy employed in this study resulted in a slight decrease in Dice coefficients compared to 
-  the baseline. This suggests that augmentation parameters need careful tuning and their effectiveness can be dataset-dependent.
-  \item Training with Soft Dice Loss yielded slightly higher pixel-wise accuracies compared to Binary Cross-Entropy loss when both 
-  were used with data augmentation. This indicates its potential for optimizing segmentation metrics directly.
+  \item Skip connections are essential for U-Net's performance in this task. Their removal led to a significant decline in Dice scores,
+        confirming their importance for feature reuse and precise localization.
+  \item The specific data augmentation strategy employed in this study resulted in a slight decrease in Dice coefficients compared to
+        the baseline. This suggests that augmentation parameters need careful tuning and their effectiveness can be dataset-dependent.
+  \item Training with Soft Dice Loss yielded slightly higher pixel-wise accuracies compared to Binary Cross-Entropy loss when both
+        were used with data augmentation. This indicates its potential for optimizing segmentation metrics directly.
 \end{enumerate}
 
 
