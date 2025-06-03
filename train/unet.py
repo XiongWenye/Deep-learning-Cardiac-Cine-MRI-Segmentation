@@ -249,19 +249,19 @@ def save_segmentation_results(model, dataset_to_sample_from, device, output_base
         for class_idx in range(len(class_names)):
             # Input Image (repeated for each class row for context)
             ax_img = axes[class_idx, 0]
-            ax_img.imshow(image_np, cmap='gray')
+            ax_img.imshow(image_np, cmap="gray")
             ax_img.set_title(f"Input Image\n(Context for {class_names[class_idx]})")
             ax_img.axis('off')
 
             # Ground Truth Mask
             ax_gt = axes[class_idx, 1]
-            ax_gt.imshow(gt_masks_np[class_idx], cmap='viridis', vmin=0, vmax=1)
+            ax_gt.imshow(gt_masks_np[class_idx])
             ax_gt.set_title(f"Ground Truth - {class_names[class_idx]}")
             ax_gt.axis('off')
 
             # Predicted Mask
             ax_pred = axes[class_idx, 2]
-            ax_pred.imshow(pred_masks_np[class_idx], cmap='viridis', vmin=0, vmax=1)
+            ax_pred.imshow(pred_masks_np[class_idx])
             ax_pred.set_title(f"Prediction - {class_names[class_idx]}")
             ax_pred.axis('off')
         

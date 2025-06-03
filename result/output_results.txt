@@ -1,26 +1,26 @@
 --- Baseline UNet ---
-RV Dice Coefficient: Mean=0.9498, SD=0.0095
-MYO Dice Coefficient: Mean=0.8730, SD=0.0144
-LV Dice Coefficient: Mean=0.8979, SD=0.0283
+RV Dice Coefficient: Mean=0.9519, SD=0.0086
+MYO Dice Coefficient: Mean=0.8734, SD=0.0161
+LV Dice Coefficient: Mean=0.8920, SD=0.0310
 
 --- UNet No Shortcut ---
-RV Dice Coefficient Without Shortcut: Mean=0.9087, SD=0.0125
-MYO Dice Coefficient Without Shortcut: Mean=0.8041, SD=0.0174
-LV Dice Coefficient Without Shortcut: Mean=0.8507, SD=0.0314
+RV Dice Coefficient Without Shortcut: Mean=0.9260, SD=0.0111
+MYO Dice Coefficient Without Shortcut: Mean=0.8223, SD=0.0168
+LV Dice Coefficient Without Shortcut: Mean=0.8588, SD=0.0296
 
 --- UNet with Data Augmentation ---
-RV Accuracy (Data Aug): Mean=0.9988, SD=0.0002
-MYO Accuracy (Data Aug): Mean=0.9972, SD=0.0004
-LV Accuracy (Data Aug): Mean=0.9981, SD=0.0004
-RV Dice Coefficient With Data Augmentation: Mean=0.9352, SD=0.0134
-MYO Dice Coefficient With Data Augmentation: Mean=0.8595, SD=0.0155
-LV Dice Coefficient With Data Augmentation: Mean=0.8856, SD=0.0295
+RV Accuracy (Data Aug): Mean=0.9986, SD=0.0002
+MYO Accuracy (Data Aug): Mean=0.9968, SD=0.0003
+LV Accuracy (Data Aug): Mean=0.9978, SD=0.0005
+RV Dice Coefficient With Data Augmentation: Mean=0.9276, SD=0.0107
+MYO Dice Coefficient With Data Augmentation: Mean=0.8469, SD=0.0149
+LV Dice Coefficient With Data Augmentation: Mean=0.8635, SD=0.0384
 
 --- UNet with Soft Dice Loss ---
-RV Accuracy With Soft Dice Loss: Mean=0.9991, SD=0.0002
-MYO Accuracy With Soft Dice Loss: Mean=0.9979, SD=0.0003
-LV Accuracy With Soft Dice Loss: Mean=0.9981, SD=0.0007
-RV Dice Coefficient With Soft Dice Loss: Mean=0.9557, SD=0.0090
-MYO Dice Coefficient With Soft Dice Loss: Mean=0.8928, SD=0.0115
-LV Dice Coefficient With Soft Dice Loss: Mean=0.8948, SD=0.0369
+RV Accuracy With Soft Dice Loss: Mean=0.9992, SD=0.0002
+MYO Accuracy With Soft Dice Loss: Mean=0.9980, SD=0.0002
+LV Accuracy With Soft Dice Loss: Mean=0.9983, SD=0.0006
+RV Dice Coefficient With Soft Dice Loss: Mean=0.9566, SD=0.0100
+MYO Dice Coefficient With Soft Dice Loss: Mean=0.8962, SD=0.0100
+LV Dice Coefficient With Soft Dice Loss: Mean=0.8998, SD=0.0371
 
