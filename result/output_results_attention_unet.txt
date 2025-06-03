@@ -1,0 +1,8 @@
+--- Advanced UNet (Attention U-Net) ---
+RV Dice Coefficient: Mean=0.9548, SD=0.0084
+MYO Dice Coefficient: Mean=0.8848, SD=0.0116
+LV Dice Coefficient: Mean=0.9072, SD=0.0248
+
+RV Accuracy: Mean=0.9991, SD=0.0002
+MYO Accuracy: Mean=0.9978, SD=0.0003
+LV Accuracy: Mean=0.9984, SD=0.0005
