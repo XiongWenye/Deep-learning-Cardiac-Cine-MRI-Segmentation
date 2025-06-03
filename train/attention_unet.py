@@ -233,16 +233,29 @@ class AttentionUNet(nn.Module):
         logits = self.outc(out)
         return logits
 
-class MyBinaryCrossEntropy(object):
-    def __init__(self):
+class SoftDiceLoss(nn.Module):
+    def __init__(self, smooth=1e-5):
+        super(SoftDiceLoss, self).__init__()
+        self.smooth = smooth
         self.sigmoid = nn.Sigmoid()
-        self.bce = nn.BCELoss(reduction='mean') 
 
-    def __call__(self, pred_seg_logits, seg_gt_raw):
-        pred_seg_probs = self.sigmoid(pred_seg_logits)
-        seg_gt_multilabel = convert_to_multi_labels(seg_gt_raw)
-        loss = self.bce(pred_seg_probs, seg_gt_multilabel)
-        return loss
+    def forward(self, pred_seg_logits, seg_gt_raw):
+        pred_seg_probs = self.sigmoid(pred_seg_logits) 
+        
+        seg_gt_multilabel = convert_to_multi_labels(seg_gt_raw) 
+
+        if pred_seg_probs.shape != seg_gt_multilabel.shape:
+            raise ValueError(f"Shape mismatch: pred_seg_probs {pred_seg_probs.shape} vs seg_gt_multilabel {seg_gt_multilabel.shape}")
+
+        intersection = (pred_seg_probs * seg_gt_multilabel).sum(dim=(2, 3))
+        sum_probs = pred_seg_probs.sum(dim=(2, 3))
+        sum_gt = seg_gt_multilabel.sum(dim=(2, 3)) 
+        dice_coeff = (2. * intersection + self.smooth) / (sum_probs + sum_gt + self.smooth) 
+        dice_coeff_per_item = dice_coeff.mean(dim=1) 
+        
+        dice_loss = 1 - dice_coeff_per_item.mean()
+        
+        return dice_loss
 
 def save_segmentation_results(model, dataset_to_sample_from, device, output_base_dir, num_samples=3, model_name=""):
     model_output_path = os.path.join(output_base_dir, model_name)
@@ -314,7 +327,7 @@ lr_scheduler_att_unet = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimiz
 solver_att_unet = lab.Solver(
     model=attention_unet_model,
     optimizer=optimizer_att_unet,
-    criterion=MyBinaryCrossEntropy(),
+    criterion=SoftDiceLoss(), # Changed to SoftDiceLoss
     lr_scheduler=lr_scheduler_att_unet,
 )
 
