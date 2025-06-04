@@ -21,7 +21,7 @@ ShanghaiTech University
     -   Impact of removing U-Net skip connections.
     -   Effect of data augmentation.
     -   Comparison of Binary Cross-Entropy vs. Soft Dice Loss.
-    -   Improvements with Attention.
+    -   Improvements with Attention and Hybrid Loss.
 *   **Evaluation:** Dice Similarity Coefficient (DSC).
 
 ---
@@ -213,14 +213,16 @@ ShanghaiTech University
 
 ### Results: Accuracy
 
-| Structure | Baseline with BCE Loss | Baseline with Soft Dice Loss |
-| :-------- | :--------------------- | :--------------------------- |
-| RV Accuracy Mean   | 0.9991                 | **0.9992**                   |
+| Structure         | Baseline with BCE Loss | Baseline with Soft Dice Loss |
+| :---------------- | :--------------------- | :--------------------------- |
+| RV Accuracy Mean  | 0.9991                 | **0.9992**                   |
 | MYO Accuracy Mean | 0.9977                 | **0.9980**                   |
-| LV Accuracy Mean  | 0.9983                 | 0.9983                   |
-| RV Accuracy std    | 0.0002                 | 0.0002                       |
-| MYO Accuracy std   | 0.0003                 | 0.0002                       |
-| LV Accuracy std    | 0.0005                 | 0.0006                       |
+| LV Accuracy Mean  | 0.9983                 | 0.9983                       |
+| RV Accuracy std   | 0.0002                 | 0.0002                       |
+| MYO Accuracy std  | 0.0003                 | 0.0002                       |
+| LV Accuracy std   | 0.0005                 | 0.0006                       |
+
+---
 
 ### Segmentation Examples (1/3)
 
@@ -266,7 +268,7 @@ ShanghaiTech University
 ## Task (e): Improvements - Part One
 *   **Advanced UNet (Attention U-Net):**
   *   **Architecture:** Introduced `AttentionBlock` in the decoder's `Up` module.
-    *   `AttentionBlock`: Computes attention coefficients by combining features from the decoder (gating signal) and encoder (skip connection), then applies these coefficients to the encoder features. This helps the model focus on relevant spatial regions during upsampling.
+      - `AttentionBlock`: Computes attention coefficients by combining features from the decoder (gating signal) and encoder (skip connection), then applies these coefficients to the encoder features. This helps the model focus on relevant spatial regions during upsampling.
   *   **Loss Function:** `Soft Dice Loss`.
   *   **Optimizer:** Adam (lr=0.001), ExponentialLR scheduler.
   *   **Training:** 50 epochs.
@@ -289,7 +291,7 @@ ShanghaiTech University
 | :-------- | :--------------------- | :--------------------------- | :-------------- |
 | RV Mean   | 0.9519                 | 0.9566                       | **0.9588**      |
 | MYO Mean  | 0.8734                 | 0.8962                       | **0.8967**      |
-| LV Mean   | 0.8920                 | 0.8998                       | **0.9072**      |
+| LV Mean   | 0.8920                 | **0.8998**                   | 0.8972          |
 | RV std    | 0.0086                 | 0.0100                       | 0.0086          |
 | MYO std   | 0.0161                 | 0.0100                       | 0.0109          |
 | LV std    | 0.0310                 | 0.0371                       | 0.0292          |
@@ -355,34 +357,35 @@ The HybridLoss adaptively weights four distinct loss components:
 
 ## Task (e): Results with HybridLoss (Mean Dice Scores)
 
-| Model                               | RV Dice (SD)      | MYO Dice (SD)     | LV Dice (SD)      |
-| :---------------------------------- | :---------------- | :---------------- | :---------------- |
-| **UNet + HybridLoss**               | 0.9504 (0.0276)   | 0.8839 (0.0275)   | 0.9061 (0.0573)   |
-| _Baseline U-Net_                    | _0.9519_          | _0.8734_          | _0.8920_       |
-| **AttUNet + HybridLoss**            | 0.9507 (0.0235)   | 0.8875 (0.0247)   | 0.9033 (0.0703)   |
-| _Attention U-Net_ | _0.9588_          | _0.8967_          | _0.9072_          |
+| Model                    | RV Dice (SD)    | MYO Dice (SD)   | LV Dice (SD)        |
+| :----------------------- | :-------------- | :-------------- | :------------------ |
+| **UNet + HybridLoss**    | 0.9504 (0.0276) | 0.8839 (0.0275) | **0.9061** (0.0573) |
+| _Baseline U-Net_         | _0.9519_        | _0.8734_        | _0.8920_            |
+| **AttUNet + HybridLoss** | 0.9507 (0.0235) | 0.8875 (0.0247) | 0.9033 (0.0703)     |
+| _Attention U-Net_        | _0.9588_        | _0.8967_        | _0.8972_            |
 
 
 ---
 
 
-## Updated Overall Performance Summary (Mean Dice Scores)
+## Overall Performance Summary (Mean Dice Scores)
 
-| Model Configuration                     | RV Mean DSC | MYO Mean DSC | LV Mean DSC |
-| :-------------------------------------- | :---------- | :----------- | :---------- |
-| (a) Baseline U-Net (BCE)                | 0.9519      | 0.8734       | 0.8920      |
-| (b) U-Net No Shortcut (BCE)             | 0.9260      | 0.8223       | 0.8588      |
-| (c) U-Net + Data Aug. (BCE)           | 0.9276      | 0.8469       | 0.8635      |
-| **(d) U-Net (Soft Dice Loss, No Aug.)** | **0.9566**  | **0.8962**   | 0.8998      |
-| (e1) UNet + HybridLoss                  | 0.9504      | 0.8839       | **0.9061**  |
-| (e2) AttUNet + HybridLoss               | 0.9507      | 0.8875       | 0.9033      |
+| Model Configuration                 | RV Mean DSC | MYO Mean DSC | LV Mean DSC |
+| :---------------------------------- | :---------- | :----------- | :---------- |
+| (a) Baseline U-Net (BCE)            | 0.9519      | 0.8734       | 0.8920      |
+| (b) U-Net No Shortcut (BCE)         | 0.9260      | 0.8223       | 0.8588      |
+| (c) U-Net + Data Aug. (BCE)         | 0.9276      | 0.8469       | 0.8635      |
+| (d) U-Net (Soft Dice Loss, No Aug.) | 0.9566      | 0.8962       | 0.8998      |
+| (e0) AttUNet (Soft Dice Loss)       | **0.9588**  | **0.8967**   | 0.8972      |
+| (e1) UNet + HybridLoss              | 0.9504      | 0.8839       | **0.9061**  |
+| (e2) AttUNet + HybridLoss           | 0.9507      | 0.8875       | 0.9033      |
 
 
 ---
 
 ## Discussion
 
-*   The **U-Net with Soft Dice Loss (Task d)** remains the top performer for RV and MYO segmentation.
+*   The **AttUNet with Soft Dice Loss** remains the top performer for RV and MYO segmentation.
 *   Models utilizing **UNet + HybridLoss (Task e1)**, achieved the best LV Dice score.
 *   **No Universal Superiority:** HybridLoss, despite its sophisticated multi-component design with adaptive weighting, did not prove to be a universally superior loss function in these experiments.
 *   **LV Segmentation Strength:** A consistent observation is the relative strength of HybridLoss (or its components) in improving or maintaining high performance for LV segmentation, even when RV/MYO performance drops.
@@ -393,7 +396,7 @@ The HybridLoss adaptively weights four distinct loss components:
 ## Conclusion
 
 *   **Best Overall Performance (Structure-wise):**
-    *   **RV & MYO:** U-Net with Soft Dice Loss (Task d) shows the highest Dice scores.
+    *   **RV & MYO:** AttUNet with Soft Dice Loss (Task d) shows the highest Dice scores. 
     *   **LV:** U-Net (and AttUNet) with HybridLoss (Task e) achieves the best Dice scores.
 *   **Complexity vs. Simplicity:** A simpler model (U-Net) with a well-chosen, targeted loss function (Soft Dice Loss) can still be highly effective and may outperform more complex loss formulations on certain structures or metrics.
 *   The performance of HybridLoss models suggests that further optimization (e.g., training duration, hyperparameter tuning of the loss components or solver) could potentially lead to even better results.
