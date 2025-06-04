@@ -455,8 +455,24 @@ The HybridLoss adaptively weights four distinct loss components:
   \item \textbf{Hausdorff Distance Loss (Approximation)} (Shape similarity)
 \end{enumerate}
 The implementation features adaptive weighting of these components using learnable uncertainty parameters. Both the standard U-Net and Attention U-Net were trained with this HybridLoss on non-augmented data.
+\\
+The U-Net + HybridLoss learned Loss parameters:
+\begin{enumerate}
+  \item \textbf{Dice Loss}: log($\sigma$) = $-0.7169$
+  \item \textbf{BCE Loss}: log($\sigma$) = $-0.7040$
+  \item \textbf{Boundary Loss}: log($\sigma$) = $-0.6851$
+  \item \textbf{Hausdorff Distance Loss}: log($\sigma$) = $-0.0468$
+\end{enumerate}
 
+The Attention U-Net + HybridLoss learned Loss parameters:
+\begin{enumerate}
+  \item \textbf{Dice Loss}: log($\sigma$) = $-0.7316$
+  \item \textbf{BCE Loss}: log($\sigma$) = $-0.6962$
+  \item \textbf{Boundary Loss}: log($\sigma$) = $-0.6799$
+  \item \textbf{Hausdorff Distance Loss}: log($\sigma$) = $-0.1023$
+\end{enumerate}
 \subsubsection{Performance with HybridLoss}
+
 The mean Dice scores for models trained with HybridLoss are presented in Table \ref{tab:hybridloss_results}.
 \begin{table}[H]
   \centering
@@ -466,10 +482,10 @@ The mean Dice scores for models trained with HybridLoss are presented in Table \
     \toprule
     Model Configuration                  & RV Dice (SD)             & MYO Dice (SD)            & LV Dice (SD)             \\
     \midrule
-    U-Net + HybridLoss                   & 0.9504 (0.0276)          & 0.8839 (0.0275)          & \textbf{0.9061} (0.0573) \\
+    U-Net + HybridLoss                   & 0.9493 (0.0241)          & 0.8840 (0.0282)          & \textbf{0.9013} (0.0677) \\
     \textit{Baseline U-Net (BCE)}        & \textit{0.9519 (0.0086)} & \textit{0.8734 (0.0161)} & \textit{0.8920 (0.0310)} \\
     \midrule
-    Attention U-Net + HybridLoss         & 0.9507 (0.0235)          & 0.8875 (0.0247)          & 0.9033 (0.0703)          \\
+    Attention U-Net + HybridLoss         & 0.9477 (0.0276)          & 0.8831 (0.0243)          & 0.8851 (0.0708)          \\
     \textit{Attention U-Net (Soft Dice)} & \textit{0.9588 (0.0086)} & \textit{0.8967 (0.0109)} & \textit{0.8972 (0.0492)} \\
     \bottomrule
   \end{tabular}
