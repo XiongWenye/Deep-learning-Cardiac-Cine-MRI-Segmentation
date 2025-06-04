@@ -86,20 +86,21 @@
   This report details the implementation and evaluation of U-Net based deep learning models for cardiac segmentation
   in cine MRI scans. The project focuses on segmenting three key structures: the Left Ventricle (LV), Right Ventricle (RV),
   and Myocardium (MYO). We explore the standard U-Net architecture, the impact of removing skip connections, the effect of
-  data augmentation, the performance difference between Binary Cross-Entropy loss and Soft Dice loss, and potential improvements using an Attention U-Net.
+  data augmentation, the performance difference between Binary Cross-Entropy loss and Soft Dice loss, and potential improvements using an Attention U-Net and Hybrid Loss.
 \end{abstract}
 
 \section{Introduction}
-This project aims to:
-\begin{enumerate}
-  \item Implement a baseline U-Net model for segmenting LV, RV, and MYO from cardiac cine MRI images.
-  \item Investigate the role of skip connections in the U-Net architecture.
-  \item Evaluate the impact of data augmentation on segmentation performance.
-  \item Compare Binary Cross-Entropy loss with Soft Dice loss for training the segmentation model.
-  \item Explore improvements to the U-Net architecture, such as incorporating attention mechanisms.
-\end{enumerate}
+The primary goal of this project is to segment key cardiac structures, namely the Left Ventricle (LV), Myocardium (MYO), and Right Ventricle (RV), from cine MRI scans. A significant challenge lies in the accurate and robust delineation of these structures, which can exhibit considerable variability in shape and appearance across different patients and image acquisitions.
 
-
+To address this, we employ a U-Net based deep learning framework. Our approach involves several stages:
+\begin{itemize}
+  \item Implementing a baseline U-Net model.
+  \item Investigating the impact of removing U-Net skip connections.
+  \item Evaluating the effect of data augmentation techniques.
+  \item Comparing the performance of Binary Cross-Entropy (BCE) loss versus Soft Dice Loss.
+  \item Exploring improvements to the U-Net architecture by incorporating attention mechanisms (Attention U-Net) and a Hybrid Loss function.
+\end{itemize}
+The performance of all models is primarily evaluated using the Dice Similarity Coefficient (DSC).
 
 \section{Baseline U-Net}
 
@@ -127,7 +128,7 @@ Our baseline is as below:
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.8\linewidth]{../result/network.png}
+  \includegraphics[width=1\linewidth]{../result/network.png}
   \caption{U-Net Network Architecture.}
   \label{fig:network_architecture}
 \end{figure}
@@ -196,6 +197,7 @@ The baseline U-Net (Table \ref{tab:baseline_unet}) demonstrated strong segmentat
         \texttt{Up\_NoShortcut} module that performs upsampling and convolution but does not concatenate features from the encoder
         path. The \texttt{forward} method of \texttt{Up\_NoShortcut} only processes the feature map from the previous decoder layer.
   \item \textbf{Retraining}: This modified U-Net was trained following the same procedure as the baseline U-Net: 50 epochs, Adam optimizer, learning rate of 0.01, and \texttt{MyBinaryCrossEntropy} loss.
+  \item \textbf{Purpose}: Evaluate the importance of skip connections.
 \end{itemize}
 
 \subsection{Performance}
@@ -227,7 +229,7 @@ The U-Net variant without skip connections, trained under identical conditions, 
 \subsection{Discussion}
 Comparing the performance in Table \ref{tab:no_shortcut_unet_comparison}, removing skip connections resulted in a significant drop in performance across all structures.
 \begin{itemize}
-  \item All structures showed a noticeable decrease in Dice Similarity Coefficient (DSC).
+  \item \textbf{Significant Drop in Performance}: All structures showed a noticeable decrease in DSC.
   \item \textbf{Reason}: Skip connections provide high-resolution spatial information from the encoder to the decoder, which is crucial for accurate boundary localization. They also aid gradient flow during backpropagation, mitigating vanishing gradient problems and improving convergence.
   \item \textbf{Conclusion}: Skip connections are vital for U-Net's segmentation accuracy in this cardiac MRI segmentation task. The MYO, being the most intricate structure, suffered a substantial relative drop in performance.
 \end{itemize}
@@ -238,7 +240,7 @@ Comparing the performance in Table \ref{tab:no_shortcut_unet_comparison}, removi
 \subsection{Structure}
 \begin{itemize}
   \item \textbf{Network}: The baseline U-Net architecture (with skip connections) was used.
-  \item \textbf{Data Augmentation Techniques}: Augmentations were applied only to the training dataset using \texttt{torchvision.transforms}. The specific augmentations included:
+  \item \textbf{Data Augmentation Techniques (Training Set Only)}: Augmentations were applied only to the training dataset using \texttt{torchvision.transforms}. The specific augmentations included:
         \begin{itemize}
           \item \texttt{RandomHorizontalFlip}
           \item \texttt{RandomRotation(15°)}
@@ -247,8 +249,8 @@ Comparing the performance in Table \ref{tab:no_shortcut_unet_comparison}, removi
         A custom \texttt{SegmentationDataset} class was used. In its \texttt{\_\_getitem\_\_} method,
         the image and its corresponding label (both single-channel tensors) were stacked along a new dimension before applying the
         transformations. This ensures that geometric augmentations are applied identically to both the image and its mask.
-  \item \textbf{Retraining}: The U-Net was retrained using the augmented training data for 50 epochs.
-        The validation set remained un-augmented. The loss function was \texttt{MyBinaryCrossEntropy}, and the learning rate was 0.01.
+  \item \textbf{Retraining}: The U-Net was retrained using the augmented training data for 50 epochs, using BCE Loss and a learning rate of 0.01.
+        The validation set remained un-augmented.
 \end{itemize}
 
 \subsection{Performance}
@@ -280,12 +282,12 @@ The baseline U-Net architecture trained with data augmentation on the training s
 \subsection{Discussion}
 As shown in Table \ref{tab:data_aug_unet_comparison}, the specific data augmentation strategy employed led to a slight decrease in Dice coefficients for all structures compared to the baseline model trained on un-augmented data.
 \begin{itemize}
+  \item \textbf{DSC Decrease}: The specific augmentation strategy led to slightly lower Dice scores.
   \item \textbf{Possible Reasons}:
         \begin{itemize}
-          \item Some aggressive augmentations (e.g., large rotations or shears in \texttt{RandomAffine}) could have distorted anatomical structures or altered their relative locations significantly, making it harder for the model to learn precise boundaries.
-          \item The augmentations might not be perfectly suited for the specific characteristics of cardiac MRI data, where subtle features and consistent anatomy are important.
+          \item Some aggressive augmentations (e.g., large rotations or shears in \texttt{RandomAffine}) could have distorted anatomical structures or altered their relative locations significantly, making it harder for the model to learn precise boundaries. Maybe the relative location of structures was altered too much.
         \end{itemize}
-  \item \textbf{Conclusion}: While data augmentation is often beneficial, its effectiveness is highly dependent on the chosen transformations and the dataset. For this project, the selected augmentations did not improve performance and may have even been detrimental. More careful selection, parameter tuning, or domain-specific augmentations would be necessary to potentially see benefits.
+  \item \textbf{Conclusion}: While data augmentation is often beneficial, its effectiveness is highly dependent on the chosen transformations and the dataset. For this project, the selected augmentations did not improve performance and may have even been detrimental. The relative location of structures is crucial for segmentation tasks, and the specific augmentations used may not have been beneficial for this dataset. More careful selection, parameter tuning, or domain-specific augmentations would be necessary to potentially see benefits.
 \end{itemize}
 
 
@@ -311,19 +313,35 @@ The training and validation loss curves for the U-Net trained with Soft Dice Los
   \label{fig:soft_dice_loss_curve}
 \end{figure}
 
-The U-Net trained with Soft Dice Loss on the non-augmented dataset achieved the Dice coefficients shown in Table \ref{tab:soft_dice_unet_comparison}.
+The U-Net trained with Soft Dice Loss on the non-augmented dataset achieved the Dice coefficients shown in Table \ref{tab:soft_dice_unet_comparison} and pixel-wise accuracies in Table \ref{tab:soft_dice_unet_accuracy}.
 \begin{table}[H]
   \centering
   \caption{Dice Coefficients: Baseline U-Net (BCE Loss) vs. U-Net (Soft Dice Loss) (Task d)}
   \label{tab:soft_dice_unet_comparison}
   \begin{tabular}{l|cc|cc}
     \toprule
-    Structure & \multicolumn{2}{c|}{Baseline U-Net (BCE Loss)} & \multicolumn{2}{c}{U-Net (Soft Dice Loss)}                         \\
-              & Mean Dice                                      & Std. Dev.                                  & Mean Dice & Std. Dev. \\
+    Structure & \multicolumn{2}{c|}{Baseline U-Net (BCE Loss)} & \multicolumn{2}{c}{U-Net (Soft Dice Loss)}                               \\
+              & Mean Dice                                      & Std. Dev.                                  & Mean Dice       & Std. Dev. \\
     \midrule
-    RV        & 0.9519                                         & 0.0086                                     & 0.9566    & 0.0100    \\
-    MYO       & 0.8734                                         & 0.0161                                     & 0.8962    & 0.0100    \\
-    LV        & 0.8920                                         & 0.0310                                     & 0.8998    & 0.0371    \\
+    RV        & 0.9519                                         & 0.0086                                     & \textbf{0.9566} & 0.0100    \\
+    MYO       & 0.8734                                         & 0.0161                                     & \textbf{0.8962} & 0.0100    \\
+    LV        & 0.8920                                         & 0.0310                                     & \textbf{0.8998} & 0.0371    \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Pixel-wise Accuracy: Baseline U-Net (BCE Loss) vs. U-Net (Soft Dice Loss)}
+  \label{tab:soft_dice_unet_accuracy}
+  \begin{tabular}{l|cc|cc}
+    \toprule
+    Structure & \multicolumn{2}{c|}{Baseline U-Net (BCE Loss)} & \multicolumn{2}{c}{U-Net (Soft Dice Loss)}                               \\
+              & Mean Accuracy                                  & Std. Dev.                                  & Mean Accuracy   & Std. Dev. \\
+    \midrule
+    RV        & 0.9991                                         & 0.0002                                     & \textbf{0.9992} & 0.0002    \\
+    MYO       & 0.9977                                         & 0.0003                                     & \textbf{0.9980} & 0.0002    \\
+    LV        & 0.9983                                         & 0.0005                                     & 0.9983          & 0.0006    \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -349,33 +367,41 @@ Example segmentation results for the U-Net trained with Soft Dice Loss are shown
 \end{figure}
 
 \subsection{Discussion}
-As shown in Table \ref{tab:soft_dice_unet_comparison}, when trained on the same non-augmented data, the U-Net with Soft Dice Loss significantly outperformed the baseline U-Net with Binary Cross-Entropy (BCE) Loss in terms of Dice Coefficient for all structures.
+As shown in Table \ref{tab:soft_dice_unet_comparison} and Table \ref{tab:soft_dice_unet_accuracy}:
 \begin{itemize}
-  \item The improvement is most notable for MYO segmentation (0.8734 to 0.8962), which is often the most challenging structure.
-  \item LV and RV segmentation also saw improvements.
-  \item This suggests that directly optimizing a Dice-based metric is beneficial for this segmentation task, likely due to its robustness to class imbalance and focus on overlap rather than pixel-wise classification accuracy alone.
+  \item \textbf{Segmentation Accuracy (Dice)}: Using Soft Dice Loss resulted in noticeably better Dice coefficients for all cardiac structures compared to BCE Loss when trained on the same non-augmented data. The improvement for MYO was particularly significant (0.8734 to 0.8962).
+  \item \textbf{Segmentation Accuracy (Pixel-wise)}: Pixel-wise accuracy also showed slight improvements or remained comparable at very high levels.
+  \item \textbf{Conclusion for Task (d)}: Changing the training loss from cross-entropy (BCE) to Soft Dice Loss improved overall segmentation accuracy, especially when evaluated by the Dice coefficient, which is more sensitive to segmentation overlap and robust to class imbalance.
 \end{itemize}
 
 
-\section{Improvements: Attention U-Net}
+\section{Improvements}
+To further enhance segmentation performance, an Attention U-Net architecture and a Hybrid Loss function were implemented and evaluated.
 
-\subsection{Structure}
-To further enhance segmentation performance, an Attention U-Net architecture was implemented.
+\subsection{Attention U-Net}
+\subsubsection{Structure}
 \begin{itemize}
   \item \textbf{Advanced U-Net (Attention U-Net):}
         \begin{itemize}
-          \item \textbf{Architecture:} An \texttt{AttentionBlock} was introduced in the decoder's \texttt{Up} module. The \texttt{AttentionBlock} computes attention coefficients by combining features from the decoder (gating signal) and the corresponding skip connection from the encoder. These coefficients are then applied to the encoder features, effectively allowing the model to focus on more relevant spatial regions during the upsampling and feature fusion process. This helps in refining segmentation boundaries, especially for complex structures.
+          \item \textbf{Architecture:} An \texttt{AttentionBlock} was introduced in the decoder's \texttt{Up} module. The \texttt{AttentionBlock} computes attention coefficients by combining features from the decoder (gating signal) and the corresponding skip connection from the encoder. These coefficients are then applied to the encoder features, effectively allowing the model to focus on more relevant spatial regions during the upsampling and feature fusion process. This helps in refining segmentation boundaries, especially for complex structures. The architecture is depicted in Figure \ref{fig:attention_unet_architecture}.
         \end{itemize}
   \item \textbf{Loss Function:} \texttt{SoftDiceLoss} was used, given its superior performance in the previous experiment.
   \item \textbf{Optimizer:} Adam optimizer with a learning rate of 0.001 and an ExponentialLR scheduler.
   \item \textbf{Training:} The model was trained for 50 epochs on the non-augmented training dataset.
 \end{itemize}
 
-\subsection{Performance}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{../result/for_ppt/attention_unet.png}
+  \caption{Attention U-Net Architecture.}
+  \label{fig:attention_unet_architecture}
+\end{figure}
+
+\subsubsection{Performance}
 The Attention U-Net trained with Soft Dice Loss achieved the Dice coefficients shown in Table \ref{tab:attention_unet_comparison}.
 \begin{table}[H]
   \centering
-  \caption{Dice Coefficients: Baseline (BCE), Baseline (Soft Dice Loss), and Attention U-Net (Soft Dice Loss) (Task e)}
+  \caption{Dice Coefficients: Baseline (BCE), Baseline (Soft Dice Loss), and Attention U-Net (Soft Dice Loss) (Task e.1)}
   \label{tab:attention_unet_comparison}
   \begin{tabular}{l|cc|cc|cc}
     \toprule
@@ -384,7 +410,7 @@ The Attention U-Net trained with Soft Dice Loss achieved the Dice coefficients s
     \midrule
     RV        & 0.9519                                    & 0.0086                                 & 0.9566                                          & 0.0100    & \textbf{0.9588} & 0.0086    \\
     MYO       & 0.8734                                    & 0.0161                                 & 0.8962                                          & 0.0100    & \textbf{0.8967} & 0.0109    \\
-    LV        & 0.8920                                    & 0.0310                                 & 0.8998                                          & 0.0371    & \textbf{0.9072} & 0.0292    \\
+    LV        & 0.8920                                    & 0.0310                                 & \textbf{0.8998}                                 & 0.0371    & 0.8972          & 0.0492    \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -409,13 +435,46 @@ Example segmentation results for the Attention U-Net are shown in Figures \ref{f
   \label{fig:attention_unet_example_rv}
 \end{figure}
 
-\subsection{Discussion}
-The Attention U-Net, when combined with Soft Dice Loss and trained on non-augmented data, demonstrated further improvements in Dice scores compared to both the baseline U-Net with BCE loss and the U-Net with Soft Dice Loss (Table \ref{tab:attention_unet_comparison}).
+\subsubsection{Discussion}
 \begin{itemize}
-  \item The most significant improvement was observed for LV segmentation (0.8998 to 0.9072). RV and MYO also showed slight gains.
-  \item This suggests that the attention mechanism effectively helps the model to focus on more salient features and complex structural details, leading to better boundary delineation and overall segmentation accuracy.
-  \item The standard deviations for the Attention U-Net are comparable or slightly lower for some structures, indicating robust performance.
+  \item The Attention U-Net showed improved Dice scores for RV and MYO compared to the baseline U-Net with BCE loss and the U-Net with Soft Dice Loss. For LV, the performance was comparable to the U-Net with Soft Dice Loss.
+  \item This suggests that the attention mechanism effectively helps the model to focus on more complex structures or finer details, leading to better boundary delineation for RV and MYO.
+  \item Accuracy scores (not shown in table, but generally high) are very high across all structures, which is common in segmentation tasks with large background areas. The Dice coefficient remains a more informative metric for evaluating overlap.
 \end{itemize}
+
+\subsection{Hybrid Loss}
+\subsubsection{Motivation}
+To further improve segmentation, especially at boundaries and for complex structures, by combining multiple complementary loss objectives. This aims to leverage the strengths of different loss types for a more holistic optimization.
+
+\subsubsection{HybridLoss Structure}
+The HybridLoss adaptively weights four distinct loss components:
+\begin{enumerate}
+  \item \textbf{Dice Loss} (Overlap)
+  \item \textbf{Binary Cross-Entropy (BCE) Loss} (Pixel-wise accuracy)
+  \item \textbf{Boundary Loss} (Edge definition)
+  \item \textbf{Hausdorff Distance Loss (Approximation)} (Shape similarity)
+\end{enumerate}
+The implementation features adaptive weighting of these components using learnable uncertainty parameters. Both the standard U-Net and Attention U-Net were trained with this HybridLoss on non-augmented data.
+
+\subsubsection{Performance with HybridLoss}
+The mean Dice scores for models trained with HybridLoss are presented in Table \ref{tab:hybridloss_results}.
+\begin{table}[H]
+  \centering
+  \caption{Mean Dice Scores with HybridLoss (Task e.2, e.3)}
+  \label{tab:hybridloss_results}
+  \begin{tabular}{l|c|c|c}
+    \toprule
+    Model Configuration                  & RV Dice (SD)             & MYO Dice (SD)            & LV Dice (SD)             \\
+    \midrule
+    U-Net + HybridLoss                   & 0.9504 (0.0276)          & 0.8839 (0.0275)          & \textbf{0.9061} (0.0573) \\
+    \textit{Baseline U-Net (BCE)}        & \textit{0.9519 (0.0086)} & \textit{0.8734 (0.0161)} & \textit{0.8920 (0.0310)} \\
+    \midrule
+    Attention U-Net + HybridLoss         & 0.9507 (0.0235)          & 0.8875 (0.0247)          & 0.9033 (0.0703)          \\
+    \textit{Attention U-Net (Soft Dice)} & \textit{0.9588 (0.0086)} & \textit{0.8967 (0.0109)} & \textit{0.8972 (0.0492)} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 
 \section{Overall Performance Summary}
 Table \ref{tab:overall_summary} provides a consolidated view of the mean Dice Similarity Coefficients (DSC) for all evaluated models across the three cardiac structures.
@@ -426,61 +485,42 @@ Table \ref{tab:overall_summary} provides a consolidated view of the mean Dice Si
   \label{tab:overall_summary}
   \begin{tabular}{lccc}
     \toprule
-    Model Configuration                                    & RV Mean DSC     & MYO Mean DSC    & LV Mean DSC     \\
+    Model Configuration                             & RV Mean DSC     & MYO Mean DSC    & LV Mean DSC     \\
     \midrule
-    (a) Baseline U-Net (BCE Loss)                          & 0.9519          & 0.8734          & 0.8920          \\
-    (b) U-Net without Skip Connections (BCE Loss)          & 0.9260          & 0.8223          & 0.8588          \\
-    (c) U-Net + Data Augmentation (BCE Loss)               & 0.9276          & 0.8469          & 0.8635          \\
-    (d) U-Net (Soft Dice Loss, No Augmentation)            & 0.9566          & 0.8962          & 0.8998          \\
-    \textbf{(e) Attention U-Net (Soft Dice Loss, No Aug.)} & \textbf{0.9588} & \textbf{0.8967} & \textbf{0.9072} \\
+    (a) Baseline U-Net (BCE Loss)                   & 0.9519          & 0.8734          & 0.8920          \\
+    (b) U-Net without Skip Connections (BCE Loss)   & 0.9260          & 0.8223          & 0.8588          \\
+    (c) U-Net + Data Augmentation (BCE Loss)        & 0.9276          & 0.8469          & 0.8635          \\
+    (d) U-Net (Soft Dice Loss, No Aug.)             & 0.9566          & 0.8962          & 0.8998          \\
+    (e.1) Attention U-Net (Soft Dice Loss, No Aug.) & \textbf{0.9588} & \textbf{0.8967} & 0.8972          \\
+    (e.2) U-Net + HybridLoss (No Aug.)              & 0.9504          & 0.8839          & \textbf{0.9061} \\
+    (e.3) Attention U-Net + HybridLoss (No Aug.)    & 0.9507          & 0.8875          & 0.9033          \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The results clearly indicate that the Attention U-Net trained with Soft Dice Loss on the original non-augmented dataset achieved the highest performance for all three cardiac structures.
+\section{Overall Discussion}
+The results from Table \ref{tab:overall_summary} highlight several key observations:
+\begin{itemize}
+  \item The Attention U-Net with Soft Dice Loss (e.1) achieved the best performance for RV and MYO segmentation.
+  \item The standard U-Net combined with HybridLoss (e.2) yielded the highest Dice score for LV segmentation.
+  \item No Universal Superiority of HybridLoss: Despite its sophisticated multi-component design with adaptive weighting, HybridLoss did not prove to be a universally superior loss function across all structures and base architectures in these experiments. For RV and MYO, the simpler Soft Dice Loss with Attention U-Net performed better.
+  \item LV Segmentation Strength with HybridLoss: A consistent observation is the relative strength of HybridLoss (or its components) in improving or maintaining high performance for LV segmentation, even when RV/MYO performance might not be optimal compared to other configurations. This suggests that the combined objectives in HybridLoss might be particularly beneficial for the characteristics of the LV.
+\end{itemize}
 
 
 \section{Conclusion}
 This project successfully implemented and evaluated several U-Net based models for cardiac cine MRI segmentation. Key findings include:
 \begin{enumerate}
-  \item The baseline U-Net provides a strong starting point for segmenting RV, LV, and MYO, with RV generally being the best-segmented structure.
-  \item Skip connections are essential for U-Net's performance in this task. Their removal led to a significant decline in Dice scores, confirming their importance for feature reuse and precise localization.
-  \item The specific data augmentation strategy employed in this study (random flips, rotations, and affine transformations) resulted in a decrease in Dice coefficients compared to training on non-augmented data. This highlights that augmentation strategies must be carefully chosen and tuned for the specific dataset and task.
-  \item Training with Soft Dice Loss on non-augmented data significantly improved performance over Binary Cross-Entropy loss, particularly for the more challenging MYO structure. This indicates the benefit of directly optimizing a segmentation-specific metric.
-  \item The Attention U-Net, when combined with Soft Dice Loss and trained on non-augmented data, yielded the best overall segmentation performance across all three structures (RV: 0.9588, MYO: 0.8967, LV: 0.9072). This demonstrates the effectiveness of attention mechanisms in helping the model focus on relevant features for improved boundary delineation.
+  \item The baseline U-Net provides a strong starting point for segmenting RV, LV, and MYO.
+  \item Skip connections are essential for U-Net's performance. Their removal led to a significant decline in Dice scores.
+  \item The specific data augmentation strategy employed resulted in a decrease in Dice coefficients, highlighting that augmentation strategies must be carefully chosen and tuned.
+  \item Training with Soft Dice Loss significantly improved performance over Binary Cross-Entropy loss, particularly for the more challenging MYO structure.
+  \item The Attention U-Net with Soft Dice Loss yielded the best segmentation performance for RV (0.9588 DSC) and MYO (0.8967 DSC).
+  \item The U-Net with HybridLoss achieved the best result for LV segmentation (0.9061 DSC).
+  \item The choice of loss function and architectural enhancements like attention mechanisms can lead to notable improvements, but their effectiveness can be structure-dependent. A simpler model (U-Net) with a well-chosen, targeted loss function (Soft Dice Loss) can still be highly effective.
+  \item The performance of HybridLoss models suggests that further optimization (e.g., training duration, hyperparameter tuning of the loss components or solver) could potentially lead to even better results.
 \end{enumerate}
-Future work could explore more sophisticated data augmentation techniques, investigate other loss functions, or experiment with different attention mechanisms or network backbones.
-
-
-% \begin{figure}[H]  直方图
-%   \centering
-%   \begin{tikzpicture}
-%     \begin{axis}
-%     [ybar, 
-%     grid = major, major grid style = {dashed},
-%     ymin = 0,
-%     ylabel = {SSIM values},
-%     title = {SSIM Values for Each Model},
-%     bar width = .5cm,
-%     width = 40cm,
-%     height = 6cm,
-%     symbolic x coords={M1, M2, M3, U1, U2, U3},
-%     x = 2cm,
-%     xtick = data,
-%     nodes near coords,
-%     nodes near coords style = {font = \fontsize{8}{12}\selectfont},
-%     enlarge x limits = 0.2,
-%     legend style = {at = {(0.5,-0.2)},anchor = north,legend columns = -1},
-%     ] 
-%     \addplot+ coordinates {(M1, 0.743) (M2, 0.844) (M3, 0.844) (U1, 0.834) (U2, 0.815) (U3, 0.807)}; 
-%     \addplot+ coordinates {(M1, 0.037) (M2, 0.037) (M3, 0.042) (U1, 0.030) (U2, 0.037) (U3, 0.041)}; 
-%     \legend{SSIM mean, SSIM std};
-%     \end{axis} 
-%   \end{tikzpicture}
-%   \caption{SSIM Values for Each Model}
-%   \label{fig:SSIM Values for Each Model}
-% \end{figure}
-
+Future work could explore more sophisticated data augmentation techniques, further investigate different loss function combinations, or experiment with different attention mechanisms or network backbones.
 
 
 \end{document}
