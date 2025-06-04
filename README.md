@@ -1,22 +1,20 @@
-# Deep-learning-Cardiac-Cine-MRI-Segmentation
+# Deep Learning for Cardiac Cine MRI Segmentation
 
 **BME1312 Artificial Intelligence in Biomedical Imaging**
 ShanghaiTech University
-
 > Members: 熊闻野, 夏博扬, 杨人一, 吴家兴, 杨丰敏
 
 ## Overview
 
-*   **Goal:** Segment key cardiac structures – LV (Left Ventricle), MYO (Myocardium), and RV (Right Ventricle).
+*   **Goal:** Segment key cardiac structures – LV, MYO, and RV.
 *   **Challenge:** Accurate and robust delineation of these structures, which can vary in shape and appearance.
 *   **Approach:** U-Net based deep learning framework.
-    1.  Baseline U-Net implementation.
-    2.  Impact of removing U-Net skip connections.
-    3.  Effect of data augmentation.
-    4.  Comparison of Binary Cross-Entropy vs. Soft Dice Loss.
-    5.  Improvements with Attention mechanism.
+  1.  Baseline U-Net implementation.
+  2.  Impact of removing U-Net skip connections.
+  3.  Effect of data augmentation.
+  4.  Comparison of Binary Cross-Entropy vs. Soft Dice Loss.
+  5.  Improvements with Attention and Hybrid Loss.
 *   **Evaluation:** Dice Similarity Coefficient (DSC).
-
 
 ## Task (a): U-Net (Baseline)
 
@@ -57,10 +55,10 @@ ShanghaiTech University
 
 ### Discussion - Baseline
 
-*   **RV Segmentation**: Achieved the highest mean Dice score. This is often expected as the RV is typically a large, relatively well-defined structure with good contrast against surrounding tissues in many MRI sequences.
-*   **LV Segmentation**: Also showed good performance. The LV cavity is usually clearly visible.
-*   **MYO Segmentation**: Had the lowest mean Dice score. The myocardium is a thinner, more complex structure surrounding the LV, and its boundaries, especially with the LV cavity (endocardium) and epicardium, can be more challenging to delineate accurately, potentially leading to lower overlap scores.
-*   The standard deviations are relatively small, indicating consistent performance across the test slices.
+*    **RV Segmentation**: Achieved the highest mean Dice score. This is often expected as the RV is typically a large, relatively well-defined structure with good contrast against surrounding tissues in many MRI sequences.
+*    **LV Segmentation**: Also showed good performance. The LV cavity is usually clearly visible.
+*    **MYO Segmentation**: Had the lowest mean Dice score. The myocardium is a thinner, more complex structure surrounding the LV, and its boundaries, especially with the LV cavity (endocardium) and epicardium, can be more challenging to delineate accurately, potentially leading to lower overlap scores.
+*    The standard deviations are relatively small, indicating consistent performance across the test slices.
 
 ## Task (b): U-Net without Skip Connections
 
@@ -96,9 +94,9 @@ ShanghaiTech University
 
 *   **Network:** Baseline U-Net architecture.
 *   **Augmentations (Training Set Only):**
-    *   `RandomHorizontalFlip`
-    *   `RandomRotation(15°)`
-    *   `RandomAffine(degrees=50, translate=(0.1,0.1), scale=(0.9,1.1), shear=5)`
+  *   `RandomHorizontalFlip`
+  *   `RandomRotation(15°)`
+  *   `RandomAffine(degrees=50, translate=(0.1,0.1), scale=(0.9,1.1), shear=5)`
 *   **Implementation:** `SegmentationDataset` ensuring identical transforms for image and mask.
 *   **Training:** BCE Loss, lr=0.01, 50 epochs.
 
@@ -110,7 +108,6 @@ ShanghaiTech University
 </div>
 
 ### Results: Dice Coefficients
-
 | Structure | Baseline DSC | Data Aug. DSC |
 | :-------- | :----------- | :------------ |
 | RV Mean   | **0.9519**   | 0.9276        |
@@ -124,8 +121,8 @@ ShanghaiTech University
 
 *   **DSC Decrease:** The specific augmentation strategy led to slightly lower Dice scores.
 *   **Possible Reasons:**
-    *   Some augmentations could have distorted anatomical structures, reducing the effectiveness of learning precise boundaries. The relative location of structures might have been altered too much.
-*   **Conclusion:** The relative location of structures is crucial for segmentation tasks, and the specific augmentations used may not have been beneficial for this dataset. More careful selection or tuning of augmentations is needed.
+  *   Some augmentations could have distorted anatomical structures, reducing the effectiveness of learning precise boundaries. Maybe the relative location of structures was altered too much.
+*  **Conclusion:** The relative location of structures is crucial for segmentation tasks, and the specific augmentations used may not have been beneficial for this dataset. More careful selection or tuning of augmentations is needed.
 
 ## Task (d): U-Net with Soft Dice Loss
 
@@ -153,6 +150,17 @@ ShanghaiTech University
 | MYO std   | 0.0161                 | 0.0100                       |
 | LV std    | 0.0310                 | 0.0371                       |
 
+### Results: Accuracy
+
+| Structure         | Baseline with BCE Loss | Baseline with Soft Dice Loss |
+| :---------------- | :--------------------- | :--------------------------- |
+| RV Accuracy Mean  | 0.9991                 | **0.9992**                   |
+| MYO Accuracy Mean | 0.9977                 | **0.9980**                   |
+| LV Accuracy Mean  | 0.9983                 | 0.9983                       |
+| RV Accuracy std   | 0.0002                 | 0.0002                       |
+| MYO Accuracy std  | 0.0003                 | 0.0002                       |
+| LV Accuracy std   | 0.0005                 | 0.0006                       |
+
 ### Segmentation Examples (Soft Dice Loss)
 
 <div align="center">
@@ -172,32 +180,40 @@ ShanghaiTech University
 
 ### Discussion - Soft Dice Loss
 
-*   When trained on the same non-augmented data, **Soft Dice Loss significantly outperformed BCE Loss** in terms of Dice Coefficient for all structures.
-*   The improvement is most notable for MYO segmentation.
-*   This suggests that directly optimizing a Dice-based metric is beneficial for this segmentation task.
+*   **Segmentation Accuracy (Dice):** Using Soft Dice Loss resulted in **noticeably better Dice coefficients** for all cardiac structures compared to BCE Loss when trained on the same non-augmented data. The improvement for MYO was particularly significant.
+*   **Segmentation Accuracy (Pixel-wise):** Pixel-wise accuracy also showed slight improvements or remained comparable at very high levels.
+*   **Conclusion for Task (d):** Changing the training loss from cross-entropy (BCE) to Soft Dice Loss **improved overall segmentation accuracy**, especially when evaluated by the Dice coefficient, which is more sensitive to segmentation overlap.
 
-## Task (e): Improvements - Attention U-Net
+## Task (e): Improvements
+
+This section explores two main improvements: using an Attention U-Net and employing a Hybrid Loss function.
+
+### Attention U-Net
 
 *   **Advanced UNet (Attention U-Net):**
-    *   **Architecture:** Introduced `AttentionBlock` in the decoder's `Up` module.
-        *   `AttentionBlock`: Computes attention coefficients by combining features from the decoder (gating signal) and encoder (skip connection), then applies these coefficients to the encoder features. This helps the model focus on relevant spatial regions during upsampling.
-    *   **Loss Function:** `Soft Dice Loss`.
-    *   **Optimizer:** Adam (lr=0.001), ExponentialLR scheduler.
-    *   **Training:** 50 epochs.
+  *   **Architecture:** Introduced `AttentionBlock` in the decoder's `Up` module.
+    *   `AttentionBlock`: Computes attention coefficients by combining features from the decoder (gating signal) and encoder (skip connection), then applies these coefficients to the encoder features. This helps the model focus on relevant spatial regions during upsampling.
+  *   **Loss Function:** `Soft Dice Loss`.
+  *   **Optimizer:** Adam (lr=0.001), ExponentialLR scheduler.
+  *   **Training:** 50 epochs.
 
-### Results: Dice Coefficients
+#### Attention U-Net Architecture Diagram
+<div align="center">
+  <img src="result/for_ppt/attention_unet.png" alt="Attention U-Net Architecture" width="700">
+  <em>Attention U-Net Architecture</em>
+</div>
 
+#### Results: Dice Coefficients (Attention U-Net)
 | Structure | Baseline with BCE Loss | Baseline with Soft Dice Loss | Attention U-Net |
 | :-------- | :--------------------- | :--------------------------- | :-------------- |
 | RV Mean   | 0.9519                 | 0.9566                       | **0.9588**      |
 | MYO Mean  | 0.8734                 | 0.8962                       | **0.8967**      |
-| LV Mean   | 0.8920                 | 0.8998                       | **0.9072**      |
+| LV Mean   | 0.8920                 | **0.8998**                   | 0.8972          |
 | RV std    | 0.0086                 | 0.0100                       | 0.0086          |
 | MYO std   | 0.0161                 | 0.0100                       | 0.0109          |
 | LV std    | 0.0310                 | 0.0371                       | 0.0292          |
 
-
-### Segmentation Examples (Attention U-Net)
+#### Segmentation Examples (Attention U-Net)
 
 <div align="center">
   <img src="result/for_ppt/attention_LV.png" alt="Attention U-Net Segmentation Example LV" width="700">
@@ -214,28 +230,57 @@ ShanghaiTech University
   <em>Attention U-Net Segmentation Example RV</em>
 </div>
 
-### Discussion - Attention U-Net
+#### Discussion - Attention U-Net
 
-*   The Attention U-Net (with Soft Dice Loss) showed improved Dice scores for RV and LV compared to the baseline U-Net with Soft Dice Loss. MYO performance was slightly lower than the baseline with Soft Dice Loss but still better than the BCE baseline.
-*   This suggests that the attention mechanism can help the model to focus on more complex structures or finer details, leading to better boundary delineation for certain structures.
-*   The choice of loss function (Soft Dice) appears to have a more consistent positive impact across all structures than the addition of attention in this specific configuration for MYO.
+*   The Attention U-Net showed improved Dice scores compared to the baseline U-Net with BCE loss and the one with Soft Dice Loss for RV and MYO. LV performance was slightly lower than the baseline with Soft Dice Loss but better than the BCE baseline.
+*   This suggests that the attention mechanism effectively helps the model to focus on more complex structures or finer details, leading to better boundary delineation for certain structures.
+*   Accuracy scores are very high across all structures, which is common in segmentation tasks with large background areas. Dice coefficient remains a more informative metric for evaluating overlap.
+
+### HybridLoss
+
+**Motivation:**
+To further improve segmentation, especially at boundaries and for complex structures, by combining multiple complementary loss objectives. This aims to leverage the strengths of different loss types for a more holistic optimization.
+
+#### HybridLoss Definition
+The HybridLoss adaptively weights four distinct loss components:
+1.  **Dice Loss** (Overlap)
+2.  **Binary Cross-Entropy (BCE) Loss** (Pixel-wise accuracy)
+3.  **Boundary Loss** (Edge definition)
+4.  **Hausdorff Distance Loss (Approximation)** (Shape similarity)
+*   Features adaptive weighting of these components using learnable uncertainty parameters.
+
+#### Results with HybridLoss (Mean Dice Scores)
+
+| Model                    | RV Dice (SD)    | MYO Dice (SD)   | LV Dice (SD)        |
+| :----------------------- | :-------------- | :-------------- | :------------------ |
+| **UNet + HybridLoss**    | 0.9504 (0.0276) | 0.8839 (0.0275) | **0.9061** (0.0573) |
+| _Baseline U-Net_         | _0.9519_        | _0.8734_        | _0.8920_            |
+| **AttUNet + HybridLoss** | 0.9507 (0.0235) | 0.8875 (0.0247) | 0.9033 (0.0703)     |
+| _Attention U-Net_        | _0.9588_        | _0.8967_        | _0.8972_            |
 
 ## Overall Performance Summary (Mean Dice Coefficients)
 
-| Model                         | RV Mean DSC | MYO Mean DSC | LV Mean DSC |
-| :---------------------------- | :---------- | :----------- | :---------- |
-| (a) Baseline U-Net (BCE)      | 0.9519      | 0.8734       | 0.8920      |
-| (b) U-Net No Shortcut (BCE)   | 0.9260      | 0.8223       | 0.8588      |
-| (c) U-Net + Data Aug. (BCE)   | 0.9276      | 0.8469       | 0.8635      |
-| (d) U-Net (Soft Dice Loss)    | 0.9566      | 0.8962       | 0.8998      |
-| **(e) Attention U-Net (BCE)** | **0.9588**  | **0.8967**   | **0.9072**  |
+| Model Configuration                 | RV Mean DSC | MYO Mean DSC | LV Mean DSC |
+| :---------------------------------- | :---------- | :----------- | :---------- |
+| (a) Baseline U-Net (BCE)            | 0.9519      | 0.8734       | 0.8920      |
+| (b) U-Net No Shortcut (BCE)         | 0.9260      | 0.8223       | 0.8588      |
+| (c) U-Net + Data Aug. (BCE)         | 0.9276      | 0.8469       | 0.8635      |
+| (d) U-Net (Soft Dice Loss, No Aug.) | 0.9566      | 0.8962       | 0.8998      |
+| (e0) AttUNet (Soft Dice Loss)       | **0.9588**  | **0.8967**   | 0.8972      |
+| (e1) UNet + HybridLoss              | 0.9504      | 0.8839       | **0.9061**  |
+| (e2) AttUNet + HybridLoss           | 0.9507      | 0.8875       | 0.9033      |
 
+## Overall Discussion
+
+*   The **AttUNet with Soft Dice Loss** (e0) remains the top performer for RV and MYO segmentation.
+*   Models utilizing **UNet + HybridLoss (e1)**, achieved the best LV Dice score.
+*   **No Universal Superiority:** HybridLoss, despite its sophisticated multi-component design with adaptive weighting, did not prove to be a universally superior loss function in these experiments.
+*   **LV Segmentation Strength:** A consistent observation is the relative strength of HybridLoss (or its components) in improving or maintaining high performance for LV segmentation, even when RV/MYO performance drops.
 
 ## Conclusion
 
-*   **Key Findings:**
-    *   The U-Net architecture with **Soft Dice Loss** (trained on non-augmented data) generally yielded strong segmentation performance.
-    *   The **Attention U-Net with Soft Dice Loss** achieved the highest Dice scores for RV and LV segmentation.
-    *   For MYO segmentation, the baseline U-Net with Soft Dice Loss performed best.
-    *   Skip connections are crucial for maintaining segmentation accuracy.
-    *   The specific data augmentation strategy tested did not improve Dice scores over the baseline non-augmented models and, in fact, decreased performance. This highlights the importance of carefully selecting and tuning augmentation techniques.
+*   **Best Overall Performance (Structure-wise):**
+  *   **RV & MYO:** AttUNet with Soft Dice Loss (Task e, Attention U-Net part; e0 in summary) shows the highest Dice scores (0.9588 for RV, 0.8967 for MYO).
+  *   **LV:** U-Net with HybridLoss (Task e, HybridLoss part; e1 in summary) achieves the best Dice score (0.9061).
+*   **Complexity vs. Simplicity:** A simpler model (U-Net) with a well-chosen, targeted loss function (Soft Dice Loss) can still be highly effective and may outperform more complex loss formulations on certain structures or metrics.
+*   The performance of HybridLoss models suggests that further optimization (e.g., training duration, hyperparameter tuning of the loss components or solver) could potentially lead to even better results.
