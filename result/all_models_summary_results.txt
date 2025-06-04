@@ -1,0 +1,11 @@
+--- Overall Model Comparison (Mean Dice Scores) ---
+
+-- Model: UNet_HybridLoss_NewSolver --
+  RV Dice: Mean=0.9504, SD=0.0276
+  MYO Dice: Mean=0.8839, SD=0.0275
+  LV Dice: Mean=0.9061, SD=0.0573
+
+-- Model: AttUNet_HybridLoss_NewSolver --
+  RV Dice: Mean=0.9507, SD=0.0235
+  MYO Dice: Mean=0.8875, SD=0.0247
+  LV Dice: Mean=0.9033, SD=0.0703

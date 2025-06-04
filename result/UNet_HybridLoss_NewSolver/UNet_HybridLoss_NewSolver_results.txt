@@ -1,0 +1,5 @@
+--- Results for UNet_HybridLoss_NewSolver ---
+RV Dice Coefficient: Mean=0.9504, SD=0.0276
+MYO Dice Coefficient: Mean=0.8839, SD=0.0275
+LV Dice Coefficient: Mean=0.9061, SD=0.0573
+

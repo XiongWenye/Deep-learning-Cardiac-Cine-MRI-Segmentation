@@ -271,415 +271,415 @@ def save_segmentation_results(model, dataset_to_sample_from, device, output_base
         plt.close(fig)
         
     print(f"Saved {actual_num_samples} segmentation results for {model_name} in '{model_output_path}'")
+if __name__ == "__main__":
+    # Ensure 'result' directory exists
+    if not os.path.exists('result'):
+        os.makedirs('result')
+    # --- Baseline UNet ---
+    print("--- Training Baseline UNet ---")
+    net = UNet(n_channels=1, n_classes=3, C_base=32) # C_base=32 as per user's code
+    optimizer_baseline = torch.optim.Adam(net.parameters(), lr=0.01)
+    lr_scheduler_baseline = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer_baseline, gamma=0.95)
 
-# Ensure 'result' directory exists
-if not os.path.exists('result'):
-    os.makedirs('result')
-# --- Baseline UNet ---
-print("--- Training Baseline UNet ---")
-net = UNet(n_channels=1, n_classes=3, C_base=32) # C_base=32 as per user's code
-optimizer_baseline = torch.optim.Adam(net.parameters(), lr=0.01)
-lr_scheduler_baseline = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer_baseline, gamma=0.95)
-
-solver_baseline = lab.Solver(
-    model=net,
-    optimizer=optimizer_baseline,
-    criterion=MyBinaryCrossEntropy(),
-    lr_scheduler=lr_scheduler_baseline,
-)
-
-solver_baseline.train(
-    epochs=50, # Consider fewer epochs for quick testing, e.g., 2-5
-    data_loader=dataloader_train,
-    val_loader=dataloader_val,
-    img_name='baseline_unet' # This name is used by lab.Solver, e.g. for TensorBoard
-)
-
-print("\n--- Evaluating Baseline UNet ---")
-dice_scores_baseline = []
-net.to(device) # Ensure model is on the correct device for evaluation
-net.eval() # Set model to evaluation mode
-
-for images, labels_gt in dataloader_test:
-    images = images.to(device)  
-    labels_gt = labels_gt.to(device) 
-    with torch.no_grad():
-        preds_logits = net(images)
-    preds_binary = torch.sigmoid(preds_logits) > 0.5
-    labels_multilabel = convert_to_multi_labels(labels_gt)
-
-    # Ensure preds_binary and labels_multilabel are (B, H, W) for get_DC
-    dice_rv = get_DC(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
-    dice_myo = get_DC(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
-    dice_lv = get_DC(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
-    dice_scores_baseline.append((dice_rv.item(), dice_myo.item(), dice_lv.item())) # .item() to get float
-
-mean_dice_rv = np.mean([score[0] for score in dice_scores_baseline])
-std_dice_rv = np.std([score[0] for score in dice_scores_baseline])
-mean_dice_myo = np.mean([score[1] for score in dice_scores_baseline])
-std_dice_myo = np.std([score[1] for score in dice_scores_baseline])
-mean_dice_lv = np.mean([score[2] for score in dice_scores_baseline])
-std_dice_lv = np.std([score[2] for score in dice_scores_baseline])
-
-print(f'RV Dice Coefficient: Mean={mean_dice_rv:.4f}, SD={std_dice_rv:.4f}')
-print(f'MYO Dice Coefficient: Mean={mean_dice_myo:.4f}, SD={std_dice_myo:.4f}')
-print(f'LV Dice Coefficient: Mean={mean_dice_lv:.4f}, SD={std_dice_lv:.4f}')
-
-# Save segmentation results for baseline UNet
-save_segmentation_results(net, test_set, device, 'result', num_samples=3, model_name='baseline_unet')
-
-
-# --- UNet No Shortcut ---
-class Up_NoShortcut(nn.Module):
-    def __init__(self, in_channels, out_channels, bilinear=True):
-        super(Up_NoShortcut, self).__init__()
-        if bilinear:
-            self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-            # After upsampling, input to DoubleConv is in_channels (from previous layer)
-            self.conv = DoubleConv(in_channels, out_channels) 
-        else:
-            self.up = nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
-            self.conv = DoubleConv(in_channels // 2, out_channels)
-
-    def forward(self, x1): # x1 is the input from the previous layer in the encoder
-        x1 = self.up(x1)
-        return self.conv(x1)
-
-class UNet_NoShortcut(nn.Module):
-    def __init__(self, n_channels, n_classes, bilinear=True, C_base=64):
-        super(UNet_NoShortcut, self).__init__()
-        self.n_channels = n_channels
-        self.n_classes = n_classes
-        self.bilinear = bilinear
-        self.C_base = C_base
-
-        self.inc = DoubleConv(n_channels, C_base)
-        self.down1 = Down(C_base, C_base*2)
-        self.down2 = Down(C_base*2, C_base*4)
-        self.down3 = Down(C_base*4, C_base*8)
-        self.down4 = Down(C_base*8, C_base*8) # Output C_base*8
-
-        self.up1 = Up_NoShortcut(C_base*8, C_base*4, bilinear) # Input from down4 (C_base*8)
-        self.up2 = Up_NoShortcut(C_base*4, C_base*2, bilinear) # Input from up1 (C_base*4)
-        self.up3 = Up_NoShortcut(C_base*2, C_base, bilinear)   # Input from up2 (C_base*2)
-        self.up4 = Up_NoShortcut(C_base, C_base, bilinear)     # Input from up3 (C_base)
-        self.outc = nn.Conv2d(C_base, n_classes, kernel_size=1)
-
-
-    def forward(self, x):
-        x1 = self.inc(x)    # C_base
-        x2 = self.down1(x1) # C_base*2
-        x3 = self.down2(x2) # C_base*4
-        x4 = self.down3(x3) # C_base*8
-        x5 = self.down4(x4) # C_base*8
-        
-        x = self.up1(x5)    # C_base*4
-        x = self.up2(x)     # C_base*2
-        x = self.up3(x)     # C_base
-        x = self.up4(x)     # C_base
-        x = self.outc(x)
-        return x
-
-print("\n--- Training UNet No Shortcut ---")
-net_no_shortcut = UNet_NoShortcut(n_channels=1, n_classes=3, C_base=32, bilinear=True) # Explicitly setting bilinear
-optimizer_no_shortcut = torch.optim.Adam(net_no_shortcut.parameters(), lr=0.01)
-lr_scheduler_no_shortcut = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer_no_shortcut, gamma=0.95) # Use new optimizer variable
-
-solver_no_shortcut = lab.Solver(
-    model=net_no_shortcut,
-    optimizer=optimizer_no_shortcut, # Pass the correct optimizer
-    criterion=MyBinaryCrossEntropy(),
-    lr_scheduler=lr_scheduler_no_shortcut 
-)
-
-solver_no_shortcut.train(
-    epochs=50, # Fewer epochs for testing
-    data_loader=dataloader_train,
-    val_loader=dataloader_val,
-    img_name='no_shortcut_unet'
-)
-
-print("\n--- Evaluating UNet No Shortcut ---")
-dice_scores_no_shortcut = []
-net_no_shortcut.to(device)
-net_no_shortcut.eval()
-
-for images, labels_gt in dataloader_test:
-    images = images.to(device)  
-    labels_gt = labels_gt.to(device) 
-    with torch.no_grad():
-        preds_logits = net_no_shortcut(images)
-    preds_binary = torch.sigmoid(preds_logits) > 0.5
-    labels_multilabel = convert_to_multi_labels(labels_gt)
-
-    dice_rv_no_shortcut = get_DC(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
-    dice_myo_no_shortcut = get_DC(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
-    dice_lv_no_shortcut = get_DC(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
-    dice_scores_no_shortcut.append((dice_rv_no_shortcut.item(), dice_myo_no_shortcut.item(), dice_lv_no_shortcut.item()))
-
-mean_dice_rv_no_shortcut = np.mean([score[0] for score in dice_scores_no_shortcut])
-std_dice_rv_no_shortcut = np.std([score[0] for score in dice_scores_no_shortcut])
-mean_dice_myo_no_shortcut = np.mean([score[1] for score in dice_scores_no_shortcut])
-std_dice_myo_no_shortcut = np.std([score[1] for score in dice_scores_no_shortcut])
-mean_dice_lv_no_shortcut = np.mean([score[2] for score in dice_scores_no_shortcut])
-std_dice_lv_no_shortcut = np.std([score[2] for score in dice_scores_no_shortcut])
-
-print(f'RV Dice Coefficient Without Shortcut: Mean={mean_dice_rv_no_shortcut:.4f}, SD={std_dice_rv_no_shortcut:.4f}')
-print(f'MYO Dice Coefficient Without Shortcut: Mean={mean_dice_myo_no_shortcut:.4f}, SD={std_dice_myo_no_shortcut:.4f}')
-print(f'LV Dice Coefficient Without Shortcut: Mean={mean_dice_lv_no_shortcut:.4f}, SD={std_dice_lv_no_shortcut:.4f}')
-
-# Save segmentation results for UNet No Shortcut
-save_segmentation_results(net_no_shortcut, test_set, device, 'result', num_samples=3, model_name='no_shortcut_unet')
-
-
-transform = transforms.Compose([
-    transforms.RandomHorizontalFlip(p=0.5),
-    transforms.RandomRotation(degrees=15),
-    transforms.RandomAffine(
-        degrees=50,
-        translate=(0.1, 0.1),  # Small translations
-        scale=(0.9, 1.1),      # Slight scaling
-        shear=5                # Small shear transformations
+    solver_baseline = lab.Solver(
+        model=net,
+        optimizer=optimizer_baseline,
+        criterion=MyBinaryCrossEntropy(),
+        lr_scheduler=lr_scheduler_baseline,
     )
-])
 
-class SegmentationDataset(data.Dataset):
-    def __init__(self, inputs, labels, transform=None):
-        self.inputs = inputs
-        self.labels = labels
-        self.transform = transform
+    solver_baseline.train(
+        epochs=50, # Consider fewer epochs for quick testing, e.g., 2-5
+        data_loader=dataloader_train,
+        val_loader=dataloader_val,
+        img_name='baseline_unet' # This name is used by lab.Solver, e.g. for TensorBoard
+    )
 
-    def __len__(self):
-        return len(self.inputs)
+    print("\n--- Evaluating Baseline UNet ---")
+    dice_scores_baseline = []
+    net.to(device) # Ensure model is on the correct device for evaluation
+    net.eval() # Set model to evaluation mode
 
-    def __getitem__(self, idx):
-        image = self.inputs[idx]
-        label = self.labels[idx]
-        
-        if self.transform: 
-            all = torch.stack((image, label), dim = 0)
-            all = self.transform(all)
-            image = all[0]
-            label = all[1]
+    for images, labels_gt in dataloader_test:
+        images = images.to(device)  
+        labels_gt = labels_gt.to(device) 
+        with torch.no_grad():
+            preds_logits = net(images)
+        preds_binary = torch.sigmoid(preds_logits) > 0.5
+        labels_multilabel = convert_to_multi_labels(labels_gt)
+
+        # Ensure preds_binary and labels_multilabel are (B, H, W) for get_DC
+        dice_rv = get_DC(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
+        dice_myo = get_DC(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
+        dice_lv = get_DC(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
+        dice_scores_baseline.append((dice_rv.item(), dice_myo.item(), dice_lv.item())) # .item() to get float
+
+    mean_dice_rv = np.mean([score[0] for score in dice_scores_baseline])
+    std_dice_rv = np.std([score[0] for score in dice_scores_baseline])
+    mean_dice_myo = np.mean([score[1] for score in dice_scores_baseline])
+    std_dice_myo = np.std([score[1] for score in dice_scores_baseline])
+    mean_dice_lv = np.mean([score[2] for score in dice_scores_baseline])
+    std_dice_lv = np.std([score[2] for score in dice_scores_baseline])
+
+    print(f'RV Dice Coefficient: Mean={mean_dice_rv:.4f}, SD={std_dice_rv:.4f}')
+    print(f'MYO Dice Coefficient: Mean={mean_dice_myo:.4f}, SD={std_dice_myo:.4f}')
+    print(f'LV Dice Coefficient: Mean={mean_dice_lv:.4f}, SD={std_dice_lv:.4f}')
+
+    # Save segmentation results for baseline UNet
+    save_segmentation_results(net, test_set, device, 'result', num_samples=3, model_name='baseline_unet')
+
+
+    # --- UNet No Shortcut ---
+    class Up_NoShortcut(nn.Module):
+        def __init__(self, in_channels, out_channels, bilinear=True):
+            super(Up_NoShortcut, self).__init__()
+            if bilinear:
+                self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+                # After upsampling, input to DoubleConv is in_channels (from previous layer)
+                self.conv = DoubleConv(in_channels, out_channels) 
+            else:
+                self.up = nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
+                self.conv = DoubleConv(in_channels // 2, out_channels)
+
+        def forward(self, x1): # x1 is the input from the previous layer in the encoder
+            x1 = self.up(x1)
+            return self.conv(x1)
+
+    class UNet_NoShortcut(nn.Module):
+        def __init__(self, n_channels, n_classes, bilinear=True, C_base=64):
+            super(UNet_NoShortcut, self).__init__()
+            self.n_channels = n_channels
+            self.n_classes = n_classes
+            self.bilinear = bilinear
+            self.C_base = C_base
+
+            self.inc = DoubleConv(n_channels, C_base)
+            self.down1 = Down(C_base, C_base*2)
+            self.down2 = Down(C_base*2, C_base*4)
+            self.down3 = Down(C_base*4, C_base*8)
+            self.down4 = Down(C_base*8, C_base*8) # Output C_base*8
+
+            self.up1 = Up_NoShortcut(C_base*8, C_base*4, bilinear) # Input from down4 (C_base*8)
+            self.up2 = Up_NoShortcut(C_base*4, C_base*2, bilinear) # Input from up1 (C_base*4)
+            self.up3 = Up_NoShortcut(C_base*2, C_base, bilinear)   # Input from up2 (C_base*2)
+            self.up4 = Up_NoShortcut(C_base, C_base, bilinear)     # Input from up3 (C_base)
+            self.outc = nn.Conv2d(C_base, n_classes, kernel_size=1)
+
+
+        def forward(self, x):
+            x1 = self.inc(x)    # C_base
+            x2 = self.down1(x1) # C_base*2
+            x3 = self.down2(x2) # C_base*4
+            x4 = self.down3(x3) # C_base*8
+            x5 = self.down4(x4) # C_base*8
             
-        return image, label
+            x = self.up1(x5)    # C_base*4
+            x = self.up2(x)     # C_base*2
+            x = self.up3(x)     # C_base
+            x = self.up4(x)     # C_base
+            x = self.outc(x)
+            return x
+
+    print("\n--- Training UNet No Shortcut ---")
+    net_no_shortcut = UNet_NoShortcut(n_channels=1, n_classes=3, C_base=32, bilinear=True) # Explicitly setting bilinear
+    optimizer_no_shortcut = torch.optim.Adam(net_no_shortcut.parameters(), lr=0.01)
+    lr_scheduler_no_shortcut = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer_no_shortcut, gamma=0.95) # Use new optimizer variable
+
+    solver_no_shortcut = lab.Solver(
+        model=net_no_shortcut,
+        optimizer=optimizer_no_shortcut, # Pass the correct optimizer
+        criterion=MyBinaryCrossEntropy(),
+        lr_scheduler=lr_scheduler_no_shortcut 
+    )
+
+    solver_no_shortcut.train(
+        epochs=50, # Fewer epochs for testing
+        data_loader=dataloader_train,
+        val_loader=dataloader_val,
+        img_name='no_shortcut_unet'
+    )
+
+    print("\n--- Evaluating UNet No Shortcut ---")
+    dice_scores_no_shortcut = []
+    net_no_shortcut.to(device)
+    net_no_shortcut.eval()
+
+    for images, labels_gt in dataloader_test:
+        images = images.to(device)  
+        labels_gt = labels_gt.to(device) 
+        with torch.no_grad():
+            preds_logits = net_no_shortcut(images)
+        preds_binary = torch.sigmoid(preds_logits) > 0.5
+        labels_multilabel = convert_to_multi_labels(labels_gt)
+
+        dice_rv_no_shortcut = get_DC(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
+        dice_myo_no_shortcut = get_DC(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
+        dice_lv_no_shortcut = get_DC(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
+        dice_scores_no_shortcut.append((dice_rv_no_shortcut.item(), dice_myo_no_shortcut.item(), dice_lv_no_shortcut.item()))
+
+    mean_dice_rv_no_shortcut = np.mean([score[0] for score in dice_scores_no_shortcut])
+    std_dice_rv_no_shortcut = np.std([score[0] for score in dice_scores_no_shortcut])
+    mean_dice_myo_no_shortcut = np.mean([score[1] for score in dice_scores_no_shortcut])
+    std_dice_myo_no_shortcut = np.std([score[1] for score in dice_scores_no_shortcut])
+    mean_dice_lv_no_shortcut = np.mean([score[2] for score in dice_scores_no_shortcut])
+    std_dice_lv_no_shortcut = np.std([score[2] for score in dice_scores_no_shortcut])
+
+    print(f'RV Dice Coefficient Without Shortcut: Mean={mean_dice_rv_no_shortcut:.4f}, SD={std_dice_rv_no_shortcut:.4f}')
+    print(f'MYO Dice Coefficient Without Shortcut: Mean={mean_dice_myo_no_shortcut:.4f}, SD={std_dice_myo_no_shortcut:.4f}')
+    print(f'LV Dice Coefficient Without Shortcut: Mean={mean_dice_lv_no_shortcut:.4f}, SD={std_dice_lv_no_shortcut:.4f}')
+
+    # Save segmentation results for UNet No Shortcut
+    save_segmentation_results(net_no_shortcut, test_set, device, 'result', num_samples=3, model_name='no_shortcut_unet')
+
+
+    transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomRotation(degrees=15),
+        transforms.RandomAffine(
+            degrees=50,
+            translate=(0.1, 0.1),  # Small translations
+            scale=(0.9, 1.1),      # Slight scaling
+            shear=5                # Small shear transformations
+        )
+    ])
+
+    class SegmentationDataset(data.Dataset):
+        def __init__(self, inputs, labels, transform=None):
+            self.inputs = inputs
+            self.labels = labels
+            self.transform = transform
+
+        def __len__(self):
+            return len(self.inputs)
+
+        def __getitem__(self, idx):
+            image = self.inputs[idx]
+            label = self.labels[idx]
+            
+            if self.transform: 
+                all = torch.stack((image, label), dim = 0)
+                all = self.transform(all)
+                image = all[0]
+                label = all[1]
+                
+            return image, label
 
 
 
-def extract_inputs_labels(dataset):
-    inputs = []
-    labels = []
-    for data in dataset:
-        input, label = data
-        inputs.append(input)
-        labels.append(label)
-    inputs = torch.stack(inputs)
-    labels = torch.stack(labels)
-    return inputs, labels
+    def extract_inputs_labels(dataset):
+        inputs = []
+        labels = []
+        for data in dataset:
+            input, label = data
+            inputs.append(input)
+            labels.append(label)
+        inputs = torch.stack(inputs)
+        labels = torch.stack(labels)
+        return inputs, labels
 
-inputs_train, labels_train = extract_inputs_labels(train_set)
-inputs_val, labels_val = extract_inputs_labels(val_set)
-inputs_test, labels_test = extract_inputs_labels(test_set)
+    inputs_train, labels_train = extract_inputs_labels(train_set)
+    inputs_val, labels_val = extract_inputs_labels(val_set)
+    inputs_test, labels_test = extract_inputs_labels(test_set)
 
-train_dataset = SegmentationDataset(inputs_train, labels_train, transform=transform)
-val_dataset = SegmentationDataset(inputs_val, labels_val, transform=None)
+    train_dataset = SegmentationDataset(inputs_train, labels_train, transform=transform)
+    val_dataset = SegmentationDataset(inputs_val, labels_val, transform=None)
 
-dataloader_train_aug = data.DataLoader(train_dataset, batch_size=32, shuffle=True)
-dataloader_val_aug = data.DataLoader(val_dataset, batch_size=32, shuffle=False)
+    dataloader_train_aug = data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+    dataloader_val_aug = data.DataLoader(val_dataset, batch_size=32, shuffle=False)
 
-print("\n--- Training UNet with Data Augmentation ---")
-net_data_aug = UNet(n_channels=1, n_classes=3, C_base=32)
-optimizer_data_aug = torch.optim.Adam(net_data_aug.parameters(), lr=0.01)
-lr_scheduler_data_aug = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer_data_aug, gamma=0.95)
+    print("\n--- Training UNet with Data Augmentation ---")
+    net_data_aug = UNet(n_channels=1, n_classes=3, C_base=32)
+    optimizer_data_aug = torch.optim.Adam(net_data_aug.parameters(), lr=0.01)
+    lr_scheduler_data_aug = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer_data_aug, gamma=0.95)
 
-solver_data_aug = lab.Solver( # Renamed solver variable
-    model=net_data_aug,
-    optimizer=optimizer_data_aug,
-    criterion=MyBinaryCrossEntropy(),
-    lr_scheduler=lr_scheduler_data_aug,
-)
+    solver_data_aug = lab.Solver( # Renamed solver variable
+        model=net_data_aug,
+        optimizer=optimizer_data_aug,
+        criterion=MyBinaryCrossEntropy(),
+        lr_scheduler=lr_scheduler_data_aug,
+    )
 
-solver_data_aug.train(
-    epochs=50, # Fewer epochs for testing
-    data_loader=dataloader_train_aug,
-    val_loader=dataloader_val_aug, # Use non-augmented val loader
-    img_name='baseline_unet_data_aug'
-)
+    solver_data_aug.train(
+        epochs=50, # Fewer epochs for testing
+        data_loader=dataloader_train_aug,
+        val_loader=dataloader_val_aug, # Use non-augmented val loader
+        img_name='baseline_unet_data_aug'
+    )
 
-print("\n--- Evaluating UNet with Data Augmentation (Accuracy) ---")
-accuracy_scores_data_aug = [] # Renamed
-net_data_aug.to(device)
-net_data_aug.eval()
+    print("\n--- Evaluating UNet with Data Augmentation (Accuracy) ---")
+    accuracy_scores_data_aug = [] # Renamed
+    net_data_aug.to(device)
+    net_data_aug.eval()
 
-for images, labels_gt in dataloader_test: # Evaluate on original, non-augmented test set
-    images = images.to(device)  
-    labels_gt = labels_gt.to(device) 
-    with torch.no_grad():
-        preds_logits = net_data_aug(images)
-    preds_binary = torch.sigmoid(preds_logits) > 0.5
-    labels_multilabel = convert_to_multi_labels(labels_gt)
+    for images, labels_gt in dataloader_test: # Evaluate on original, non-augmented test set
+        images = images.to(device)  
+        labels_gt = labels_gt.to(device) 
+        with torch.no_grad():
+            preds_logits = net_data_aug(images)
+        preds_binary = torch.sigmoid(preds_logits) > 0.5
+        labels_multilabel = convert_to_multi_labels(labels_gt)
 
-    # get_accuracy expects (B, H, W) or (H, W) inputs.
-    # Ensure preds_binary and labels_multilabel are suitable.
-    accuracy_rv = get_accuracy(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
-    accuracy_myo = get_accuracy(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
-    accuracy_lv = get_accuracy(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
-    accuracy_scores_data_aug.append((accuracy_rv, accuracy_myo, accuracy_lv))
+        # get_accuracy expects (B, H, W) or (H, W) inputs.
+        # Ensure preds_binary and labels_multilabel are suitable.
+        accuracy_rv = get_accuracy(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
+        accuracy_myo = get_accuracy(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
+        accuracy_lv = get_accuracy(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
+        accuracy_scores_data_aug.append((accuracy_rv, accuracy_myo, accuracy_lv))
 
-mean_accuracy_rv_aug = np.mean([score[0] for score in accuracy_scores_data_aug]) # Renamed
-std_accuracy_rv_aug = np.std([score[0] for score in accuracy_scores_data_aug])
-mean_accuracy_myo_aug = np.mean([score[1] for score in accuracy_scores_data_aug])
-std_accuracy_myo_aug = np.std([score[1] for score in accuracy_scores_data_aug])
-mean_accuracy_lv_aug = np.mean([score[2] for score in accuracy_scores_data_aug])
-std_accuracy_lv_aug = np.std([score[2] for score in accuracy_scores_data_aug])
+    mean_accuracy_rv_aug = np.mean([score[0] for score in accuracy_scores_data_aug]) # Renamed
+    std_accuracy_rv_aug = np.std([score[0] for score in accuracy_scores_data_aug])
+    mean_accuracy_myo_aug = np.mean([score[1] for score in accuracy_scores_data_aug])
+    std_accuracy_myo_aug = np.std([score[1] for score in accuracy_scores_data_aug])
+    mean_accuracy_lv_aug = np.mean([score[2] for score in accuracy_scores_data_aug])
+    std_accuracy_lv_aug = np.std([score[2] for score in accuracy_scores_data_aug])
 
-print(f'RV Accuracy (Data Aug): Mean={mean_accuracy_rv_aug:.4f}, SD={std_accuracy_rv_aug:.4f}')
-print(f'MYO Accuracy (Data Aug): Mean={mean_accuracy_myo_aug:.4f}, SD={std_accuracy_myo_aug:.4f}')
-print(f'LV Accuracy (Data Aug): Mean={mean_accuracy_lv_aug:.4f}, SD={std_accuracy_lv_aug:.4f}')
+    print(f'RV Accuracy (Data Aug): Mean={mean_accuracy_rv_aug:.4f}, SD={std_accuracy_rv_aug:.4f}')
+    print(f'MYO Accuracy (Data Aug): Mean={mean_accuracy_myo_aug:.4f}, SD={std_accuracy_myo_aug:.4f}')
+    print(f'LV Accuracy (Data Aug): Mean={mean_accuracy_lv_aug:.4f}, SD={std_accuracy_lv_aug:.4f}')
 
-print("\n--- Evaluating UNet with Data Augmentation (Dice) ---")
-dice_scores_data_aug = []
-# net_data_aug is already on device and in eval mode
+    print("\n--- Evaluating UNet with Data Augmentation (Dice) ---")
+    dice_scores_data_aug = []
+    # net_data_aug is already on device and in eval mode
 
-for images, labels_gt in dataloader_test:
-    images = images.to(device)  
-    labels_gt = labels_gt.to(device) 
-    with torch.no_grad():
-        preds_logits = net_data_aug(images)
-    preds_binary = torch.sigmoid(preds_logits) > 0.5
-    labels_multilabel = convert_to_multi_labels(labels_gt)
+    for images, labels_gt in dataloader_test:
+        images = images.to(device)  
+        labels_gt = labels_gt.to(device) 
+        with torch.no_grad():
+            preds_logits = net_data_aug(images)
+        preds_binary = torch.sigmoid(preds_logits) > 0.5
+        labels_multilabel = convert_to_multi_labels(labels_gt)
 
-    dice_rv_data_aug = get_DC(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
-    dice_myo_data_aug = get_DC(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
-    dice_lv_data_aug = get_DC(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
-    dice_scores_data_aug.append((dice_rv_data_aug.item(), dice_myo_data_aug.item(), dice_lv_data_aug.item()))
+        dice_rv_data_aug = get_DC(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
+        dice_myo_data_aug = get_DC(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
+        dice_lv_data_aug = get_DC(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
+        dice_scores_data_aug.append((dice_rv_data_aug.item(), dice_myo_data_aug.item(), dice_lv_data_aug.item()))
 
-mean_dice_rv_data_aug = np.mean([score[0] for score in dice_scores_data_aug])
-std_dice_rv_data_aug= np.std([score[0] for score in dice_scores_data_aug])
-mean_dice_myo_data_aug = np.mean([score[1] for score in dice_scores_data_aug])
-std_dice_myo_data_aug = np.std([score[1] for score in dice_scores_data_aug])
-mean_dice_lv_data_aug = np.mean([score[2] for score in dice_scores_data_aug])
-std_dice_lv_data_aug = np.std([score[2] for score in dice_scores_data_aug])
+    mean_dice_rv_data_aug = np.mean([score[0] for score in dice_scores_data_aug])
+    std_dice_rv_data_aug= np.std([score[0] for score in dice_scores_data_aug])
+    mean_dice_myo_data_aug = np.mean([score[1] for score in dice_scores_data_aug])
+    std_dice_myo_data_aug = np.std([score[1] for score in dice_scores_data_aug])
+    mean_dice_lv_data_aug = np.mean([score[2] for score in dice_scores_data_aug])
+    std_dice_lv_data_aug = np.std([score[2] for score in dice_scores_data_aug])
 
-print(f'RV Dice Coefficient With Data Augmentation: Mean={mean_dice_rv_data_aug:.4f}, SD={std_dice_rv_data_aug:.4f}')
-print(f'MYO Dice Coefficient With Data Augmentation: Mean={mean_dice_myo_data_aug:.4f}, SD={std_dice_myo_data_aug:.4f}')
-print(f'LV Dice Coefficient With Data Augmentation: Mean={mean_dice_lv_data_aug:.4f}, SD={std_dice_lv_data_aug:.4f}')
+    print(f'RV Dice Coefficient With Data Augmentation: Mean={mean_dice_rv_data_aug:.4f}, SD={std_dice_rv_data_aug:.4f}')
+    print(f'MYO Dice Coefficient With Data Augmentation: Mean={mean_dice_myo_data_aug:.4f}, SD={std_dice_myo_data_aug:.4f}')
+    print(f'LV Dice Coefficient With Data Augmentation: Mean={mean_dice_lv_data_aug:.4f}, SD={std_dice_lv_data_aug:.4f}')
 
-# Save segmentation results for UNet with Data Augmentation
-save_segmentation_results(net_data_aug, test_set, device, 'result', num_samples=3, model_name='baseline_unet_data_aug')
-
-
-# --- UNet with Soft Dice Loss ---
-class SoftDiceLoss(nn.Module):
-    def __init__(self, smooth=1.):
-        super(SoftDiceLoss, self).__init__()
-        self.smooth = smooth
-        self.sigmoid = nn.Sigmoid()
+    # Save segmentation results for UNet with Data Augmentation
+    save_segmentation_results(net_data_aug, test_set, device, 'result', num_samples=3, model_name='baseline_unet_data_aug')
 
 
-    def forward(self, pred_logits, targets_gt): # pred_logits (B, N_CLASS, H, W), targets_gt (B, 1, H, W) raw labels
-        inputs_probs = self.sigmoid(pred_logits)  # Convert logits to probabilities (B, N_CLASS, H, W)
-        targets_multilabel = convert_to_multi_labels(targets_gt)  # Convert GT to (B, N_CLASS, H, W) binary
+    # --- UNet with Soft Dice Loss ---
+    class SoftDiceLoss(nn.Module):
+        def __init__(self, smooth=1.):
+            super(SoftDiceLoss, self).__init__()
+            self.smooth = smooth
+            self.sigmoid = nn.Sigmoid()
 
-        # Sum over spatial dimensions (H, W)
-        intersection = (inputs_probs * targets_multilabel).sum(dim=(2, 3))
-        union_sum = inputs_probs.sum(dim=(2, 3)) + targets_multilabel.sum(dim=(2, 3))
 
-        dice_coefficient_per_class = (2. * intersection + self.smooth) / (union_sum + self.smooth)
+        def forward(self, pred_logits, targets_gt): # pred_logits (B, N_CLASS, H, W), targets_gt (B, 1, H, W) raw labels
+            inputs_probs = self.sigmoid(pred_logits)  # Convert logits to probabilities (B, N_CLASS, H, W)
+            targets_multilabel = convert_to_multi_labels(targets_gt)  # Convert GT to (B, N_CLASS, H, W) binary
+
+            # Sum over spatial dimensions (H, W)
+            intersection = (inputs_probs * targets_multilabel).sum(dim=(2, 3))
+            union_sum = inputs_probs.sum(dim=(2, 3)) + targets_multilabel.sum(dim=(2, 3))
+
+            dice_coefficient_per_class = (2. * intersection + self.smooth) / (union_sum + self.smooth)
+            
+            # Average Dice coefficient over classes and then over the batch
+            dice_loss = 1 - dice_coefficient_per_class.mean() 
+            return dice_loss
+
+    print("\n--- Training UNet with Soft Dice Loss (and Data Augmentation for training) ---")
+    net_soft_dice = UNet(n_channels=1, n_classes=3, C_base=32)
+    optimizer_soft_dice = torch.optim.Adam(net_soft_dice.parameters(), lr=0.001) # lr=0.001 as per user
+    lr_scheduler_soft_dice = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer_soft_dice, gamma=0.95)
+
+    dice_loss_fn = SoftDiceLoss() # Renamed instance
+
+    solver_soft_dice = lab.Solver( # Renamed solver
+        model=net_soft_dice,
+        optimizer=optimizer_soft_dice,
+        criterion=dice_loss_fn, # Use the SoftDiceLoss instance
+        lr_scheduler=lr_scheduler_soft_dice,
+    )
+
+    # Training with augmented data as per user's setup for other models
+    solver_soft_dice.train(
+        epochs=50, # Fewer for testing
+        data_loader=dataloader_train_aug, # Using augmented training data
+        val_loader=dataloader_val_aug,   # Using non-augmented validation data
+        img_name='soft_dice_loss' # Model/run name
+    )
+
+    print("\n--- Evaluating UNet with Soft Dice Loss (Accuracy) ---")
+    accuracy_scores_soft_dice = []
+    net_soft_dice.to(device)
+    net_soft_dice.eval()
+
+    for images, labels_gt in dataloader_test: # Evaluate on original non-augmented test set
+        images = images.to(device)  
+        labels_gt = labels_gt.to(device) 
+        with torch.no_grad():
+            preds_logits = net_soft_dice(images)
+        preds_binary = torch.sigmoid(preds_logits) > 0.5
+        labels_multilabel = convert_to_multi_labels(labels_gt)
+
+        accuracy_rv_soft_dice = get_accuracy(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
+        accuracy_myo_soft_dice = get_accuracy(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
+        accuracy_lv_soft_dice = get_accuracy(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
+        accuracy_scores_soft_dice.append((accuracy_rv_soft_dice, accuracy_myo_soft_dice, accuracy_lv_soft_dice))
+
+    mean_accuracy_rv_soft_dice = np.mean([score[0] for score in accuracy_scores_soft_dice])
+    std_accuracy_rv_soft_dice = np.std([score[0] for score in accuracy_scores_soft_dice])
+    mean_accuracy_myo_soft_dice = np.mean([score[1] for score in accuracy_scores_soft_dice])
+    std_accuracy_myo_soft_dice = np.std([score[1] for score in accuracy_scores_soft_dice])
+    mean_accuracy_lv_soft_dice  = np.mean([score[2] for score in accuracy_scores_soft_dice])
+    std_accuracy_lv_soft_dice  = np.std([score[2] for score in accuracy_scores_soft_dice])
+
+    print(f'RV Accuracy With Soft Dice Loss: Mean={mean_accuracy_rv_soft_dice:.4f}, SD={std_accuracy_rv_soft_dice:.4f}')
+    print(f'MYO Accuracy With Soft Dice Loss: Mean={mean_accuracy_myo_soft_dice:.4f}, SD={std_accuracy_myo_soft_dice:.4f}')
+    print(f'LV Accuracy With Soft Dice Loss: Mean={mean_accuracy_lv_soft_dice:.4f}, SD={std_accuracy_lv_soft_dice:.4f}')
+
+    # Save segmentation results for UNet with Soft Dice Loss
+    save_segmentation_results(net_soft_dice, test_set, device, 'result', num_samples=3, model_name='soft_dice_loss_unet') # Changed model_name for clarity
+
+    # --- Writing Results to File ---
+    # Ensure result directory exists for the text file
+    output_file_path = os.path.join('result', 'output_results.txt')
+    print(f"\n--- Writing all results to {output_file_path} ---")
+
+    with open(output_file_path, 'w') as file:
+        file.write("--- Baseline UNet ---\n")
+        file.write(f'RV Dice Coefficient: Mean={mean_dice_rv:.4f}, SD={std_dice_rv:.4f}\n')
+        file.write(f'MYO Dice Coefficient: Mean={mean_dice_myo:.4f}, SD={std_dice_myo:.4f}\n')
+        file.write(f'LV Dice Coefficient: Mean={mean_dice_lv:.4f}, SD={std_dice_lv:.4f}\n\n')
+
+        file.write("--- UNet No Shortcut ---\n")
+        file.write(f'RV Dice Coefficient Without Shortcut: Mean={mean_dice_rv_no_shortcut:.4f}, SD={std_dice_rv_no_shortcut:.4f}\n')
+        file.write(f'MYO Dice Coefficient Without Shortcut: Mean={mean_dice_myo_no_shortcut:.4f}, SD={std_dice_myo_no_shortcut:.4f}\n')
+        file.write(f'LV Dice Coefficient Without Shortcut: Mean={mean_dice_lv_no_shortcut:.4f}, SD={std_dice_lv_no_shortcut:.4f}\n\n')
+
+        # Accuracy for baseline UNet (Data Aug section in original was for a new model)
+        # The original code calculated accuracy for net_data_aug and net_soft_dice.
+        # Let's assume the "RV Accuracy: Mean={mean_accuracy_rv}, SD={std_accuracy_rv}" 
+        # in the original output file was a typo and meant for one of the later models,
+        # or it was from an earlier run of the baseline where accuracy was also computed.
+        # For now, I will only write metrics that were explicitly computed in this script flow.
         
-        # Average Dice coefficient over classes and then over the batch
-        dice_loss = 1 - dice_coefficient_per_class.mean() 
-        return dice_loss
+        file.write("--- UNet with Data Augmentation ---\n")
+        file.write(f'RV Accuracy (Data Aug): Mean={mean_accuracy_rv_aug:.4f}, SD={std_accuracy_rv_aug:.4f}\n')
+        file.write(f'MYO Accuracy (Data Aug): Mean={mean_accuracy_myo_aug:.4f}, SD={std_accuracy_myo_aug:.4f}\n')
+        file.write(f'LV Accuracy (Data Aug): Mean={mean_accuracy_lv_aug:.4f}, SD={std_accuracy_lv_aug:.4f}\n')
+        file.write(f'RV Dice Coefficient With Data Augmentation: Mean={mean_dice_rv_data_aug:.4f}, SD={std_dice_rv_data_aug:.4f}\n')
+        file.write(f'MYO Dice Coefficient With Data Augmentation: Mean={mean_dice_myo_data_aug:.4f}, SD={std_dice_myo_data_aug:.4f}\n')
+        file.write(f'LV Dice Coefficient With Data Augmentation: Mean={mean_dice_lv_data_aug:.4f}, SD={std_dice_lv_data_aug:.4f}\n\n')
+        
+        file.write("--- UNet with Soft Dice Loss ---\n")
+        file.write(f'RV Accuracy With Soft Dice Loss: Mean={mean_accuracy_rv_soft_dice:.4f}, SD={std_accuracy_rv_soft_dice:.4f}\n')
+        file.write(f'MYO Accuracy With Soft Dice Loss: Mean={mean_accuracy_myo_soft_dice:.4f}, SD={std_accuracy_myo_soft_dice:.4f}\n')
+        file.write(f'LV Accuracy With Soft Dice Loss: Mean={mean_accuracy_lv_soft_dice:.4f}, SD={std_accuracy_lv_soft_dice:.4f}\n')
 
-print("\n--- Training UNet with Soft Dice Loss (and Data Augmentation for training) ---")
-net_soft_dice = UNet(n_channels=1, n_classes=3, C_base=32)
-optimizer_soft_dice = torch.optim.Adam(net_soft_dice.parameters(), lr=0.001) # lr=0.001 as per user
-lr_scheduler_soft_dice = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer_soft_dice, gamma=0.95)
-
-dice_loss_fn = SoftDiceLoss() # Renamed instance
-
-solver_soft_dice = lab.Solver( # Renamed solver
-    model=net_soft_dice,
-    optimizer=optimizer_soft_dice,
-    criterion=dice_loss_fn, # Use the SoftDiceLoss instance
-    lr_scheduler=lr_scheduler_soft_dice,
-)
-
-# Training with augmented data as per user's setup for other models
-solver_soft_dice.train(
-    epochs=50, # Fewer for testing
-    data_loader=dataloader_train_aug, # Using augmented training data
-    val_loader=dataloader_val_aug,   # Using non-augmented validation data
-    img_name='soft_dice_loss' # Model/run name
-)
-
-print("\n--- Evaluating UNet with Soft Dice Loss (Accuracy) ---")
-accuracy_scores_soft_dice = []
-net_soft_dice.to(device)
-net_soft_dice.eval()
-
-for images, labels_gt in dataloader_test: # Evaluate on original non-augmented test set
-    images = images.to(device)  
-    labels_gt = labels_gt.to(device) 
-    with torch.no_grad():
-        preds_logits = net_soft_dice(images)
-    preds_binary = torch.sigmoid(preds_logits) > 0.5
-    labels_multilabel = convert_to_multi_labels(labels_gt)
-
-    accuracy_rv_soft_dice = get_accuracy(preds_binary[:, 0, :, :], labels_multilabel[:, 0, :, :])
-    accuracy_myo_soft_dice = get_accuracy(preds_binary[:, 1, :, :], labels_multilabel[:, 1, :, :])
-    accuracy_lv_soft_dice = get_accuracy(preds_binary[:, 2, :, :], labels_multilabel[:, 2, :, :])
-    accuracy_scores_soft_dice.append((accuracy_rv_soft_dice, accuracy_myo_soft_dice, accuracy_lv_soft_dice))
-
-mean_accuracy_rv_soft_dice = np.mean([score[0] for score in accuracy_scores_soft_dice])
-std_accuracy_rv_soft_dice = np.std([score[0] for score in accuracy_scores_soft_dice])
-mean_accuracy_myo_soft_dice = np.mean([score[1] for score in accuracy_scores_soft_dice])
-std_accuracy_myo_soft_dice = np.std([score[1] for score in accuracy_scores_soft_dice])
-mean_accuracy_lv_soft_dice  = np.mean([score[2] for score in accuracy_scores_soft_dice])
-std_accuracy_lv_soft_dice  = np.std([score[2] for score in accuracy_scores_soft_dice])
-
-print(f'RV Accuracy With Soft Dice Loss: Mean={mean_accuracy_rv_soft_dice:.4f}, SD={std_accuracy_rv_soft_dice:.4f}')
-print(f'MYO Accuracy With Soft Dice Loss: Mean={mean_accuracy_myo_soft_dice:.4f}, SD={std_accuracy_myo_soft_dice:.4f}')
-print(f'LV Accuracy With Soft Dice Loss: Mean={mean_accuracy_lv_soft_dice:.4f}, SD={std_accuracy_lv_soft_dice:.4f}')
-
-# Save segmentation results for UNet with Soft Dice Loss
-save_segmentation_results(net_soft_dice, test_set, device, 'result', num_samples=3, model_name='soft_dice_loss_unet') # Changed model_name for clarity
-
-# --- Writing Results to File ---
-# Ensure result directory exists for the text file
-output_file_path = os.path.join('result', 'output_results.txt')
-print(f"\n--- Writing all results to {output_file_path} ---")
-
-with open(output_file_path, 'w') as file:
-    file.write("--- Baseline UNet ---\n")
-    file.write(f'RV Dice Coefficient: Mean={mean_dice_rv:.4f}, SD={std_dice_rv:.4f}\n')
-    file.write(f'MYO Dice Coefficient: Mean={mean_dice_myo:.4f}, SD={std_dice_myo:.4f}\n')
-    file.write(f'LV Dice Coefficient: Mean={mean_dice_lv:.4f}, SD={std_dice_lv:.4f}\n\n')
-
-    file.write("--- UNet No Shortcut ---\n")
-    file.write(f'RV Dice Coefficient Without Shortcut: Mean={mean_dice_rv_no_shortcut:.4f}, SD={std_dice_rv_no_shortcut:.4f}\n')
-    file.write(f'MYO Dice Coefficient Without Shortcut: Mean={mean_dice_myo_no_shortcut:.4f}, SD={std_dice_myo_no_shortcut:.4f}\n')
-    file.write(f'LV Dice Coefficient Without Shortcut: Mean={mean_dice_lv_no_shortcut:.4f}, SD={std_dice_lv_no_shortcut:.4f}\n\n')
-
-    # Accuracy for baseline UNet (Data Aug section in original was for a new model)
-    # The original code calculated accuracy for net_data_aug and net_soft_dice.
-    # Let's assume the "RV Accuracy: Mean={mean_accuracy_rv}, SD={std_accuracy_rv}" 
-    # in the original output file was a typo and meant for one of the later models,
-    # or it was from an earlier run of the baseline where accuracy was also computed.
-    # For now, I will only write metrics that were explicitly computed in this script flow.
-    
-    file.write("--- UNet with Data Augmentation ---\n")
-    file.write(f'RV Accuracy (Data Aug): Mean={mean_accuracy_rv_aug:.4f}, SD={std_accuracy_rv_aug:.4f}\n')
-    file.write(f'MYO Accuracy (Data Aug): Mean={mean_accuracy_myo_aug:.4f}, SD={std_accuracy_myo_aug:.4f}\n')
-    file.write(f'LV Accuracy (Data Aug): Mean={mean_accuracy_lv_aug:.4f}, SD={std_accuracy_lv_aug:.4f}\n')
-    file.write(f'RV Dice Coefficient With Data Augmentation: Mean={mean_dice_rv_data_aug:.4f}, SD={std_dice_rv_data_aug:.4f}\n')
-    file.write(f'MYO Dice Coefficient With Data Augmentation: Mean={mean_dice_myo_data_aug:.4f}, SD={std_dice_myo_data_aug:.4f}\n')
-    file.write(f'LV Dice Coefficient With Data Augmentation: Mean={mean_dice_lv_data_aug:.4f}, SD={std_dice_lv_data_aug:.4f}\n\n')
-    
-    file.write("--- UNet with Soft Dice Loss ---\n")
-    file.write(f'RV Accuracy With Soft Dice Loss: Mean={mean_accuracy_rv_soft_dice:.4f}, SD={std_accuracy_rv_soft_dice:.4f}\n')
-    file.write(f'MYO Accuracy With Soft Dice Loss: Mean={mean_accuracy_myo_soft_dice:.4f}, SD={std_accuracy_myo_soft_dice:.4f}\n')
-    file.write(f'LV Accuracy With Soft Dice Loss: Mean={mean_accuracy_lv_soft_dice:.4f}, SD={std_accuracy_lv_soft_dice:.4f}\n')
-
-print(f"All metrics saved to {output_file_path}")
-print("Segmentation sample images saved in 'result/' subdirectories.")
+    print(f"All metrics saved to {output_file_path}")
+    print("Segmentation sample images saved in 'result/' subdirectories.")

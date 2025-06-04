@@ -1,0 +1,5 @@
+--- Results for AttUNet_HybridLoss_NewSolver ---
+RV Dice Coefficient: Mean=0.9507, SD=0.0235
+MYO Dice Coefficient: Mean=0.8875, SD=0.0247
+LV Dice Coefficient: Mean=0.9033, SD=0.0703
+
