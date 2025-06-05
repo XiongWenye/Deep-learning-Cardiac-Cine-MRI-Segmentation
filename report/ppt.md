@@ -14,7 +14,7 @@ ShanghaiTech University
 
 ## Overview
 
-*   **Goal:** Segment key cardiac structures – LV, MYO, and RV
+*   **Goal:** Segment key cardiac structures – RV, MYO, and LV
 *   **Challenge:** Accurate and robust delineation of these structures, which can vary in shape and appearance.
 *   **Approach:** U-Net based deep learning framework.
     -   Baseline U-Net implementation.
@@ -50,9 +50,9 @@ ShanghaiTech University
 
 | Structure | Mean Dice | Std. Dev. |
 | :-------- | :-------- | :-------- |
-| RV        | 0.9519    | 0.0086    |
+| LV        | 0.9519    | 0.0086    |
 | MYO       | 0.8734    | 0.0161    |
-| LV        | 0.8920    | 0.0310    |
+| RV        | 0.8920    | 0.0310    |
 
 ---
 
@@ -60,8 +60,8 @@ ShanghaiTech University
 
 <div align="center">
   <figure>
-    <img src="..\result\for_ppt\baseline_LV.png" alt="Baseline Segmentation Example" width="1000">
-    <figcaption><em> Baseline Segmentation Example LV</em></figcaption>
+    <img src="..\result\for_ppt\baseline_RV.png" alt="Baseline Segmentation Example" width="1000">
+    <figcaption><em> Baseline Segmentation Example RV</em></figcaption>
   </figure>
 </div>
 
@@ -82,8 +82,8 @@ ShanghaiTech University
 
 <div align="center">
   <figure>
-    <img src="..\result\for_ppt\baseline_RV.png" alt="Baseline Segmentation Example" width="1000">
-    <figcaption><em> Baseline Segmentation Example RV</em></figcaption>
+    <img src="..\result\for_ppt\baseline_LV.png" alt="Baseline Segmentation Example" width="1000">
+    <figcaption><em> Baseline Segmentation Example LV</em></figcaption>
   </figure>
 </div>
 
@@ -91,9 +91,9 @@ ShanghaiTech University
 
 ### Discussion - Baseline
 
-*    **RV Segmentation**: Achieved the highest mean Dice score. This is often expected as the RV is typically a large, relatively well-defined structure with good contrast against surrounding tissues in many MRI sequences.
-*    **LV Segmentation**: Also showed good performance. The LV cavity is usually clearly visible.
-*    **MYO Segmentation**: Had the lowest mean Dice score. The myocardium is a thinner, more complex structure surrounding the LV, and its boundaries, especially with the LV cavity (endocardium) and epicardium, can be more challenging to delineate accurately, potentially leading to lower overlap scores.
+*    **LV Segmentation**: Achieved the highest mean Dice score. This is often expected as the LV is typically a large, relatively well-defined structure with good contrast against surrounding tissues in many MRI sequences.
+*    **RV Segmentation**: Also showed good performance. The RV cavity is usually clearly visible.
+*    **MYO Segmentation**: Had the lowest mean Dice score. The myocardium is a thinner, more complex structure surrounding the RV, and its boundaries, especially with the RV cavity (endocardium) and epicardium, can be more challenging to delineate accurately, potentially leading to lower overlap scores.
 *    The standard deviations are relatively small, indicating consistent performance across the test slices.
 
 ---
@@ -120,12 +120,12 @@ ShanghaiTech University
 
 | Structure | Baseline DSC | No Shortcut DSC |
 | :-------- | :----------- | :-------------- |
-| RV Mean   | **0.9519**   | 0.9260          |
+| LV Mean   | **0.9519**   | 0.9260          |
 | MYO Mean  | **0.8734**   | 0.8223          |
-| LV Mean   | **0.8920**   | 0.8588          |
-| RV std    | 0.0086       | 0.0111          |
+| RV Mean   | **0.8920**   | 0.8588          |
+| LV std    | 0.0086       | 0.0111          |
 | MYO std   | 0.0161       | 0.0168          |
-| LV std    | 0.0310       | 0.0296          |
+| RV std    | 0.0310       | 0.0296          |
 
 ---
 
@@ -160,12 +160,12 @@ ShanghaiTech University
 ### Results: Dice Coefficients
 | Structure | Baseline DSC | Data Aug. DSC |
 | :-------- | :----------- | :------------ |
-| RV Mean   | **0.9519**   | 0.9276        |
+| LV Mean   | **0.9519**   | 0.9276        |
 | MYO Mean  | **0.8734**   | 0.8469        |
-| LV Mean   | **0.8920**   | 0.8635        |
-| RV std    | 0.0086       | 0.0107        |
+| RV Mean   | **0.8920**   | 0.8635        |
+| LV std    | 0.0086       | 0.0107        |
 | MYO std   | 0.0161       | 0.0149        |
-| LV std    | 0.0310       | 0.0384        |
+| RV std    | 0.0310       | 0.0384        |
 
 
 ---
@@ -202,12 +202,12 @@ ShanghaiTech University
 
 | Structure | Baseline with BCE Loss | Baseline with Soft Dice Loss |
 | :-------- | :--------------------- | :--------------------------- |
-| RV Mean   | 0.9519                 | **0.9566**                   |
+| LV Mean   | 0.9519                 | **0.9566**                   |
 | MYO Mean  | 0.8734                 | **0.8962**                   |
-| LV Mean   | 0.8920                 | **0.8998**                   |
-| RV std    | 0.0086                 | 0.0100                       |
+| RV Mean   | 0.8920                 | **0.8998**                   |
+| LV std    | 0.0086                 | 0.0100                       |
 | MYO std   | 0.0161                 | 0.0100                       |
-| LV std    | 0.0310                 | 0.0371                       |
+| RV std    | 0.0310                 | 0.0371                       |
 
 ---
 
@@ -215,12 +215,12 @@ ShanghaiTech University
 
 | Structure         | Baseline with BCE Loss | Baseline with Soft Dice Loss |
 | :---------------- | :--------------------- | :--------------------------- |
-| RV Accuracy Mean  | 0.9991                 | **0.9992**                   |
+| LV Accuracy Mean  | 0.9991                 | **0.9992**                   |
 | MYO Accuracy Mean | 0.9977                 | **0.9980**                   |
-| LV Accuracy Mean  | 0.9983                 | 0.9983                       |
-| RV Accuracy std   | 0.0002                 | 0.0002                       |
+| RV Accuracy Mean  | 0.9983                 | 0.9983                       |
+| LV Accuracy std   | 0.0002                 | 0.0002                       |
 | MYO Accuracy std  | 0.0003                 | 0.0002                       |
-| LV Accuracy std   | 0.0005                 | 0.0006                       |
+| RV Accuracy std   | 0.0005                 | 0.0006                       |
 
 ---
 
@@ -228,8 +228,8 @@ ShanghaiTech University
 
 <div align="center">
   <figure>
-    <img src="..\result\for_ppt\soft_dice_loss_LV.png" alt="Baseline with Soft Dice Loss Segmentation Example" width="1000">
-    <figcaption><em> Baseline with Soft Dice Loss Segmentation Example LV</em></figcaption>
+    <img src="..\result\for_ppt\soft_dice_loss_RV.png" alt="Baseline with Soft Dice Loss Segmentation Example" width="1000">
+    <figcaption><em> Baseline with Soft Dice Loss Segmentation Example RV</em></figcaption>
   </figure>
 </div>
 
@@ -250,8 +250,8 @@ ShanghaiTech University
 
 <div align="center">
   <figure>
-    <img src="..\result\for_ppt\soft_dice_loss_RV.png" alt="Baseline with Soft Dice Loss Segmentation Example" width="1000">
-    <figcaption><em> Baseline with Soft Dice Loss Segmentation Example RV</em></figcaption>
+    <img src="..\result\for_ppt\soft_dice_loss_LV.png" alt="Baseline with Soft Dice Loss Segmentation Example" width="1000">
+    <figcaption><em> Baseline with Soft Dice Loss Segmentation Example LV</em></figcaption>
   </figure>
 </div>
 
@@ -269,7 +269,7 @@ ShanghaiTech University
 *   **Advanced UNet (Attention U-Net):**
   *   **Architecture:** Introduced `AttentionBlock` in the decoder's `Up` module.
       - `AttentionBlock`: Computes attention coefficients by combining features from the decoder (gating signal) and encoder (skip connection), then applies these coefficients to the encoder features. This helps the model focus on relevant spatial regions during upsampling.
-  *   **Loss Function:** `Soft Dice Loss`.
+  *   **Loss Function:** `BCE`.
   *   **Optimizer:** Adam (lr=0.001), ExponentialLR scheduler.
   *   **Training:** 50 epochs.
 
@@ -289,12 +289,12 @@ ShanghaiTech University
 ### Results: Dice Coefficients
 | Structure | Baseline with BCE Loss | Baseline with Soft Dice Loss | Attention U-Net |
 | :-------- | :--------------------- | :--------------------------- | :-------------- |
-| RV Mean   | 0.9519                 | 0.9566                       | **0.9588**      |
-| MYO Mean  | 0.8734                 | 0.8962                       | **0.8967**      |
-| LV Mean   | 0.8920                 | **0.8998**                   | 0.8972          |
-| RV std    | 0.0086                 | 0.0100                       | 0.0086          |
-| MYO std   | 0.0161                 | 0.0100                       | 0.0109          |
-| LV std    | 0.0310                 | 0.0371                       | 0.0292          |
+| LV Mean   | 0.9519                 | 0.9566                       | **0.9568**      |
+| MYO Mean  | 0.8734                 | 0.8962                       | **0.8963**      |
+| RV Mean   | 0.8920                 | 0.8998                       | **0.9029**      |
+| LV std    | 0.0086                 | 0.0100                       | 0.0095          |
+| MYO std   | 0.0161                 | 0.0100                       | 0.0120          |
+| RV std    | 0.0310                 | 0.0371                       | 0.0370          |
 
 ---
 
@@ -302,8 +302,8 @@ ShanghaiTech University
 
 <div align="center">
   <figure>
-    <img src="..\result\for_ppt\attention_LV.png" alt="Attention U-Net Segmentation Example LV" width="1000">
-    <figcaption><em> Attention U-Net Segmentation Example LV</em></figcaption>
+    <img src="..\result\for_ppt\attention_RV.png" alt="Attention U-Net Segmentation Example RV" width="1000">
+    <figcaption><em> Attention U-Net Segmentation Example RV</em></figcaption>
   </figure>
 </div>
 
@@ -324,8 +324,8 @@ ShanghaiTech University
 
 <div align="center">
   <figure>
-    <img src="..\result\for_ppt\attention_RV.png" alt="Attention U-Net Segmentation Example RV" width="1000">
-    <figcaption><em> Attention U-Net Segmentation Example RV</em></figcaption>
+    <img src="..\result\for_ppt\attention_LV.png" alt="Attention U-Net Segmentation Example LV" width="1000">
+    <figcaption><em> Attention U-Net Segmentation Example LV</em></figcaption>
   </figure>
 </div>
 
@@ -357,12 +357,12 @@ The HybridLoss adaptively weights four distinct loss components:
 
 ## Task (e): Results with HybridLoss (Mean Dice Scores)
 
-| Model                    | RV Dice (SD)    | MYO Dice (SD)   | LV Dice (SD)        |
-| :----------------------- | :-------------- | :-------------- | :------------------ |
-| **UNet + HybridLoss**    | 0.9504 (0.0276) | 0.8839 (0.0275) | **0.9061** (0.0573) |
-| _Baseline U-Net_         | _0.9519_        | _0.8734_        | _0.8920_            |
-| **AttUNet + HybridLoss** | 0.9507 (0.0235) | 0.8875 (0.0247) | 0.9033 (0.0703)     |
-| _Attention U-Net_        | _0.9588_        | _0.8967_        | _0.8972_            |
+| Model                    | LV Dice (SD)      | MYO Dice (SD)     | RV Dice (SD)        |
+| :----------------------- | :---------------- | :---------------- | :------------------ |
+| **UNet + HybridLoss**    | 0.9504 (0.0276)   | 0.8839 (0.0275)   | **0.9061** (0.0573) |
+| _Baseline U-Net_         | _0.9519_          | _0.8734_          | _0.8920_            |
+| **AttUNet + HybridLoss** | 0.9507 (0.0235)   | 0.8875 (0.0247)   | 0.9033 (0.0703)     |
+| _Attention U-Net_        | _0.9568 (0.0095)_ | _0.8963 (0.0120)_ | _0.9029 (0.0370)_   |
 
 
 ---
@@ -370,13 +370,13 @@ The HybridLoss adaptively weights four distinct loss components:
 
 ## Overall Performance Summary (Mean Dice Scores)
 
-| Model Configuration                 | RV Mean DSC | MYO Mean DSC | LV Mean DSC |
+| Model Configuration                 | LV Mean DSC | MYO Mean DSC | RV Mean DSC |
 | :---------------------------------- | :---------- | :----------- | :---------- |
 | (a) Baseline U-Net (BCE)            | 0.9519      | 0.8734       | 0.8920      |
 | (b) U-Net No Shortcut (BCE)         | 0.9260      | 0.8223       | 0.8588      |
 | (c) U-Net + Data Aug. (BCE)         | 0.9276      | 0.8469       | 0.8635      |
 | (d) U-Net (Soft Dice Loss, No Aug.) | 0.9566      | 0.8962       | 0.8998      |
-| (e0) AttUNet (Soft Dice Loss)       | **0.9588**  | **0.8967**   | 0.8972      |
+| (e0) AttUNet (BCE)                  | **0.9568**  | **0.8963**   | 0.9029      |
 | (e1) UNet + HybridLoss              | 0.9504      | 0.8839       | **0.9061**  |
 | (e2) AttUNet + HybridLoss           | 0.9507      | 0.8875       | 0.9033      |
 
@@ -385,10 +385,10 @@ The HybridLoss adaptively weights four distinct loss components:
 
 ## Discussion
 
-*   The **AttUNet with Soft Dice Loss** remains the top performer for RV and MYO segmentation.
-*   Models utilizing **UNet + HybridLoss (Task e1)**, achieved the best LV Dice score.
+*   The **AttUNet with BCE** remains the top performer for LV and MYO segmentation.
+*   Models utilizing **UNet + HybridLoss (Task e1)**, achieved the best RV Dice score.
 *   **No Universal Superiority:** HybridLoss, despite its sophisticated multi-component design with adaptive weighting, did not prove to be a universally superior loss function in these experiments.
-*   **LV Segmentation Strength:** A consistent observation is the relative strength of HybridLoss (or its components) in improving or maintaining high performance for LV segmentation, even when RV/MYO performance drops.
+*   **RV Segmentation Strength:** A consistent observation is the relative strength of HybridLoss (or its components) in improving or maintaining high performance for RV segmentation, even when LV/MYO performance drops.
 
 ---
 
@@ -396,8 +396,8 @@ The HybridLoss adaptively weights four distinct loss components:
 ## Conclusion
 
 *   **Best Overall Performance (Structure-wise):**
-    *   **RV & MYO:** AttUNet with Soft Dice Loss (Task d) shows the highest Dice scores. 
-    *   **LV:** U-Net (and AttUNet) with HybridLoss (Task e) achieves the best Dice scores.
+    *   **LV & MYO:** AttUNet with BCE (Task d) shows the highest Dice scores. 
+    *   **RV:** U-Net (and AttUNet) with HybridLoss (Task e) achieves the best Dice scores.
 *   **Complexity vs. Simplicity:** A simpler model (U-Net) with a well-chosen, targeted loss function (Soft Dice Loss) can still be highly effective and may outperform more complex loss formulations on certain structures or metrics.
 *   The performance of HybridLoss models suggests that further optimization (e.g., training duration, hyperparameter tuning of the loss components or solver) could potentially lead to even better results.
 
