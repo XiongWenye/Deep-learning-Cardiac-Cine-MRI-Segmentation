@@ -102,6 +102,15 @@ To address this, we employ a U-Net based deep learning framework. Our approach i
 \end{itemize}
 The performance of all models is primarily evaluated using the Dice Similarity Coefficient (DSC).
 
+\section{Data Preprocessing}
+
+Prior to training, all input images underwent \textbf{MinMax} normalization to ensure consistent pixel intensity ranges across the dataset. This preprocessing step is crucial for deep learning models as it:
+\begin{itemize}
+  \item Accelerates convergence during training by maintaining input values within a consistent range
+  \item Prevents gradient vanishing/exploding problems that can occur with unnormalized intensity values
+  \item Ensures stability across different MRI acquisition parameters and patient variations
+\end{itemize}
+
 \section{Baseline U-Net}
 
 \subsection{Structure}
@@ -137,7 +146,7 @@ Our baseline is as below:
 The training loss and validation loss of the baseline U-Net are shown in Figure \ref{fig:baseline_unet_loss}.
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth]{../result/baseline_unet.png}
+  \includegraphics[width=0.8\linewidth]{../result/baseline_unet.png}
   \caption{Training and Validation Loss Curves for the Baseline U-Net}
   \label{fig:baseline_unet_loss}
 \end{figure}
@@ -454,8 +463,9 @@ The HybridLoss adaptively weights four distinct loss components:
   \item \textbf{Boundary Loss} (Edge definition)
   \item \textbf{Hausdorff Distance Loss (Approximation)} (Shape similarity)
 \end{enumerate}
+
 The implementation features adaptive weighting of these components using learnable uncertainty parameters. Both the standard U-Net and Attention U-Net were trained with this HybridLoss on non-augmented data.
-\\
+
 The U-Net + HybridLoss learned Loss parameters:
 \begin{enumerate}
   \item \textbf{Dice Loss}: log($\sigma$) = $-0.7169$
