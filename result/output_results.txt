@@ -1,29 +1,29 @@
 --- Baseline UNet ---
-RV Dice Coefficient: Mean=0.9519, SD=0.0086
+LV Dice Coefficient: Mean=0.9519, SD=0.0086
 MYO Dice Coefficient: Mean=0.8734, SD=0.0161
-LV Dice Coefficient: Mean=0.8920, SD=0.0310
-RV Accuracy (baseline): Mean=0.9991, SD=0.0002
+RV Dice Coefficient: Mean=0.8920, SD=0.0310
+LV Accuracy (baseline): Mean=0.9991, SD=0.0002
 MYO Accuracy (baseline): Mean=0.9977, SD=0.0003
-LV Accuracy (baseline): Mean=0.9983, SD=0.0005
+RV Accuracy (baseline): Mean=0.9983, SD=0.0005
 
 --- UNet No Shortcut ---
-RV Dice Coefficient Without Shortcut: Mean=0.9260, SD=0.0111
+LV Dice Coefficient Without Shortcut: Mean=0.9260, SD=0.0111
 MYO Dice Coefficient Without Shortcut: Mean=0.8223, SD=0.0168
-LV Dice Coefficient Without Shortcut: Mean=0.8588, SD=0.0296
+RV Dice Coefficient Without Shortcut: Mean=0.8588, SD=0.0296
 
 --- UNet with Data Augmentation ---
-RV Accuracy (Data Aug): Mean=0.9986, SD=0.0002
+LV Accuracy (Data Aug): Mean=0.9986, SD=0.0002
 MYO Accuracy (Data Aug): Mean=0.9968, SD=0.0003
-LV Accuracy (Data Aug): Mean=0.9978, SD=0.0005
-RV Dice Coefficient With Data Augmentation: Mean=0.9276, SD=0.0107
+RV Accuracy (Data Aug): Mean=0.9978, SD=0.0005
+LV Dice Coefficient With Data Augmentation: Mean=0.9276, SD=0.0107
 MYO Dice Coefficient With Data Augmentation: Mean=0.8469, SD=0.0149
-LV Dice Coefficient With Data Augmentation: Mean=0.8635, SD=0.0384
+RV Dice Coefficient With Data Augmentation: Mean=0.8635, SD=0.0384
 
 --- UNet with Soft Dice Loss ---
-RV Accuracy With Soft Dice Loss: Mean=0.9992, SD=0.0002
+LV Accuracy With Soft Dice Loss: Mean=0.9992, SD=0.0002
 MYO Accuracy With Soft Dice Loss: Mean=0.9980, SD=0.0002
-LV Accuracy With Soft Dice Loss: Mean=0.9983, SD=0.0006
-RV Dice Coefficient With Soft Dice Loss: Mean=0.9566, SD=0.0100
+RV Accuracy With Soft Dice Loss: Mean=0.9983, SD=0.0006
+LV Dice Coefficient With Soft Dice Loss: Mean=0.9566, SD=0.0100
 MYO Dice Coefficient With Soft Dice Loss: Mean=0.8962, SD=0.0100
-LV Dice Coefficient With Soft Dice Loss: Mean=0.8998, SD=0.0371
+RV Dice Coefficient With Soft Dice Loss: Mean=0.8998, SD=0.0371
 
